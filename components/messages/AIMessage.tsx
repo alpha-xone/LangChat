@@ -1,18 +1,31 @@
 import { useTheme } from '@/theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
+import * as Clipboard from 'expo-clipboard';
 import React from 'react';
-import { Dimensions, Platform, ScrollView, Text, View } from 'react-native';
+import { Dimensions, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 interface AIMessageProps {
   message?: Message;
   isLoading?: boolean;
+  onCopy?: (text: string) => void;
 }
 
-export function AIMessage({ message, isLoading = false }: AIMessageProps) {
+export function AIMessage({ message, isLoading = false, onCopy }: AIMessageProps) {
   const { theme } = useTheme();
   const screenWidth = Dimensions.get('window').width;
+
+  const handleCopy = async () => {
+    if (!message?.content) return;
+
+    try {
+      await Clipboard.setStringAsync(message.content);
+      onCopy?.(message.content);
+    } catch (error) {
+      console.error('Failed to copy message:', error);
+    }
+  };
 
   // Markdown styles that adapt to theme
   const markdownStyles = {
@@ -162,7 +175,7 @@ export function AIMessage({ message, isLoading = false }: AIMessageProps) {
   if (isLoading) {
     return (
       <View style={{
-        marginBottom: 12,
+        marginBottom: 16,
         paddingHorizontal: 16,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -217,7 +230,7 @@ export function AIMessage({ message, isLoading = false }: AIMessageProps) {
 
   return (
     <View style={{
-      marginBottom: 12,
+      marginBottom: 16,
       paddingHorizontal: 16,
     }}>
       {/* Message Content with Markdown - Full Width */}
@@ -266,6 +279,15 @@ export function AIMessage({ message, isLoading = false }: AIMessageProps) {
           ))}
         </View>
       )}
+
+      {/* Copy button - below message, aligned left */}
+      <TouchableOpacity className='left-1' onPress={handleCopy}>
+        <Ionicons
+          name="copy-outline"
+          size={16}
+          color={theme.text + '60'}
+        />
+      </TouchableOpacity>
     </View>
   );
 }

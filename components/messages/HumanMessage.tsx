@@ -1,19 +1,31 @@
 import { getContentString } from '@/lib/message-utils';
 import { useTheme } from '@/theme/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
+import * as Clipboard from 'expo-clipboard';
 import React from 'react';
-import { Dimensions, Platform, ScrollView, Text, View } from 'react-native';
+import { Dimensions, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 interface HumanMessageProps {
   message: Message;
+  onCopy?: (text: string) => void;
 }
 
-export function HumanMessage({ message }: HumanMessageProps) {
+export function HumanMessage({ message, onCopy }: HumanMessageProps) {
   const { theme } = useTheme();
   const content = getContentString(message);
   const screenWidth = Dimensions.get('window').width;
   const maxMessageWidth = screenWidth * 0.85;
+
+  const handleCopy = async () => {
+    try {
+      await Clipboard.setStringAsync(content);
+      onCopy?.(content);
+    } catch (error) {
+      console.error('Failed to copy message:', error);
+    }
+  };
 
   // Markdown styles for human messages (white text on primary background)
   const markdownStyles = {
@@ -233,33 +245,45 @@ export function HumanMessage({ message }: HumanMessageProps) {
 
   return (
     <View style={{
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      marginBottom: 12,
+      flexDirection: 'column',
+      alignItems: 'flex-end',
+      marginBottom: 16,
       paddingHorizontal: 16,
     }}>
       <View style={{
         maxWidth: maxMessageWidth,
-        backgroundColor: theme.primary,
-        borderRadius: 18,
-        paddingHorizontal: 16,
-        paddingVertical: 3,
-        elevation: 2,
-        shadowColor: theme.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
       }}>
-        <Markdown
-          style={markdownStyles}
-          rules={{
-            code_block: renderCodeBlock,
-            fence: renderCodeBlock,
-          }}
-        >
-          {content}
-        </Markdown>
+        <View style={{
+          backgroundColor: theme.primary,
+          borderRadius: 18,
+          paddingHorizontal: 12,
+          paddingVertical: 3,
+          elevation: 2,
+          shadowColor: theme.primary,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+        }}>
+          <Markdown
+            style={markdownStyles}
+            rules={{
+              code_block: renderCodeBlock,
+              fence: renderCodeBlock,
+            }}
+          >
+            {content}
+          </Markdown>
+        </View>
       </View>
+
+      {/* Copy button - below message, aligned right */}
+      <TouchableOpacity className='top-2 right-3' onPress={handleCopy}>
+        <Ionicons
+          name="copy-outline"
+          size={16}
+          color={theme.text + '60'}
+        />
+      </TouchableOpacity>
     </View>
   );
 }

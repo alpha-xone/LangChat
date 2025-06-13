@@ -1,9 +1,10 @@
 import { AIMessage } from '@/components/messages/AIMessage';
 import { HumanMessage } from '@/components/messages/HumanMessage';
+import { Toast } from '@/components/ui/Toast';
 import { filterRenderableMessages } from '@/lib/message-utils';
 import { useTheme } from '@/theme/ThemeContext';
 import { Message } from '@langchain/langgraph-sdk';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   RefreshControl,
@@ -28,6 +29,7 @@ export function MessageList({
 }: MessageListProps) {
   const { theme } = useTheme();
   const flatListRef = useRef<FlatList>(null);
+  const [toast, setToast] = useState({ visible: false, message: '' });
 
   // Filter out messages that shouldn't be rendered
   const renderableMessages = filterRenderableMessages(messages);
@@ -43,14 +45,22 @@ export function MessageList({
     }
   }, [renderableMessages.length, renderableMessages[renderableMessages.length - 1]?.content]);
 
+  const handleCopy = (text: string) => {
+    setToast({ visible: true, message: 'Message copied to clipboard' });
+  };
+
+  const hideToast = () => {
+    setToast({ visible: false, message: '' });
+  };
+
   const renderMessage = ({ item: message, index }: { item: Message; index: number }) => {
     const key = message.id || `${message.type}-${index}`;
 
     switch (message.type) {
       case 'human':
-        return <HumanMessage key={key} message={message} />;
+        return <HumanMessage key={key} message={message} onCopy={handleCopy} />;
       case 'ai':
-        return <AIMessage key={key} message={message} />;
+        return <AIMessage key={key} message={message} onCopy={handleCopy} />;
       case 'tool':
         // Tool messages are typically not rendered directly in the UI
         return null;
@@ -100,45 +110,54 @@ export function MessageList({
 
     return (
       <View style={{ paddingVertical: 8 }}>
-        <AIMessage isLoading={true} />
+        <AIMessage isLoading={true} onCopy={handleCopy} />
       </View>
     );
   };
 
   return (
-    <FlatList
-      ref={flatListRef}
-      data={renderableMessages}
-      renderItem={renderMessage}
-      keyExtractor={(item, index) => item.id || `${item.type}-${index}`}
-      style={{
-        flex: 1,
-        backgroundColor: theme.background
-      }}
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingVertical: 8,
-        ...(renderableMessages.length === 0 && { justifyContent: 'center' })
-      }}
-      ListHeaderComponent={ListHeaderComponent}
-      ListEmptyComponent={renderEmpty}
-      ListFooterComponent={renderFooter}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
-          />
-        ) : undefined
-      }
-      showsVerticalScrollIndicator={false}
-      removeClippedSubviews={true}
-      maxToRenderPerBatch={10}
-      updateCellsBatchingPeriod={50}
-      initialNumToRender={20}
-      windowSize={10}
-    />
+    <View style={{ flex: 1 }}>
+      <FlatList
+        ref={flatListRef}
+        data={renderableMessages}
+        renderItem={renderMessage}
+        keyExtractor={(item, index) => item.id || `${item.type}-${index}`}
+        style={{
+          flex: 1,
+          backgroundColor: theme.background
+        }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingVertical: 8,
+          ...(renderableMessages.length === 0 && { justifyContent: 'center' })
+        }}
+        ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
+          ) : undefined
+        }
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={20}
+        windowSize={10}
+      />
+
+      <Toast
+        message={toast.message}
+        visible={toast.visible}
+        onHide={hideToast}
+        duration={2000}
+      />
+    </View>
   );
 }
