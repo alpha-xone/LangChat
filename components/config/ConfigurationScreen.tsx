@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -86,27 +85,31 @@ export function ConfigurationScreen({
   const disabled = isLoading || saving;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.header}>
-        <Text style={styles.title}>LangGraph Configuration</Text>
-        <Text style={styles.subtitle}>
+    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 24 }}>
+      <View className="mb-8 items-center">
+        <Text className="text-3xl font-bold text-black mb-2 text-center">
+          LangGraph Configuration
+        </Text>
+        <Text className="text-base text-gray-600 text-center leading-6">
           Connect to your LangGraph server to start chatting
         </Text>
       </View>
 
-      <View style={styles.form}>
-        <View style={styles.field}>
-          <Text style={styles.label}>
-            API URL <Text style={styles.required}>*</Text>
+      <View className="gap-6 mb-8">
+        <View className="gap-2">
+          <Text className="text-base font-semibold text-black">
+            API URL <Text className="text-red-500">*</Text>
             {envApiUrl && (
-              <Text style={styles.envIndicator}> (from .env)</Text>
+              <Text className="text-xs text-blue-500 font-medium"> (from .env)</Text>
             )}
           </Text>
-          <Text style={styles.description}>
+          <Text className="text-sm text-gray-600 leading-5">
             The URL of your LangGraph deployment (local or production)
           </Text>
           <TextInput
-            style={[styles.input, disabled && styles.inputDisabled]}
+            className={`border border-gray-300 rounded-lg px-4 py-3 text-base bg-white ${
+              disabled ? 'bg-gray-100 text-gray-500' : ''
+            }`}
             value={apiUrl}
             onChangeText={setApiUrl}
             placeholder={envApiUrl || "http://localhost:2024"}
@@ -116,22 +119,24 @@ export function ConfigurationScreen({
             editable={!disabled}
           />
           {envApiUrl && !apiUrl && (
-            <Text style={styles.envValue}>Using: {envApiUrl}</Text>
+            <Text className="text-xs text-blue-500 mt-1 italic">Using: {envApiUrl}</Text>
           )}
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>
-            Assistant / Graph ID <Text style={styles.required}>*</Text>
+        <View className="gap-2">
+          <Text className="text-base font-semibold text-black">
+            Assistant / Graph ID <Text className="text-red-500">*</Text>
             {envAssistantId && (
-              <Text style={styles.envIndicator}> (from .env)</Text>
+              <Text className="text-xs text-blue-500 font-medium"> (from .env)</Text>
             )}
           </Text>
-          <Text style={styles.description}>
+          <Text className="text-sm text-gray-600 leading-5">
             The ID of the graph or assistant to use for conversations
           </Text>
           <TextInput
-            style={[styles.input, disabled && styles.inputDisabled]}
+            className={`border border-gray-300 rounded-lg px-4 py-3 text-base bg-white ${
+              disabled ? 'bg-gray-100 text-gray-500' : ''
+            }`}
             value={assistantId}
             onChangeText={setAssistantId}
             placeholder={envAssistantId || "agent"}
@@ -140,22 +145,24 @@ export function ConfigurationScreen({
             editable={!disabled}
           />
           {envAssistantId && !assistantId && (
-            <Text style={styles.envValue}>Using: {envAssistantId}</Text>
+            <Text className="text-xs text-blue-500 mt-1 italic">Using: {envAssistantId}</Text>
           )}
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>
+        <View className="gap-2">
+          <Text className="text-base font-semibold text-black">
             LangSmith API Key
             {envApiKey && (
-              <Text style={styles.envIndicator}> (from .env)</Text>
+              <Text className="text-xs text-blue-500 font-medium"> (from .env)</Text>
             )}
           </Text>
-          <Text style={styles.description}>
+          <Text className="text-sm text-gray-600 leading-5">
             Required for deployed LangGraph servers. Not needed for local development.
           </Text>
           <TextInput
-            style={[styles.input, disabled && styles.inputDisabled]}
+            className={`border border-gray-300 rounded-lg px-4 py-3 text-base bg-white ${
+              disabled ? 'bg-gray-100 text-gray-500' : ''
+            }`}
             value={apiKey}
             onChangeText={setApiKey}
             placeholder={envApiKey ? "••••••••••••" : "lsv2_pt_..."}
@@ -165,31 +172,37 @@ export function ConfigurationScreen({
             editable={!disabled}
           />
           {envApiKey && !apiKey && (
-            <Text style={styles.envValue}>Using environment variable</Text>
+            <Text className="text-xs text-blue-500 mt-1 italic">Using environment variable</Text>
           )}
         </View>
       </View>
 
-      <View style={styles.actions}>
+      <View className="gap-3">
         <TouchableOpacity
-          style={[styles.saveButton, disabled && styles.saveButtonDisabled]}
+          className={`${
+            disabled ? 'bg-gray-400' : 'bg-blue-500'
+          } rounded-lg py-4 items-center`}
           onPress={handleSave}
           disabled={disabled}
         >
           {saving ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveButtonText}>Save Configuration</Text>
+            <Text className="text-white text-base font-semibold">Save Configuration</Text>
           )}
         </TouchableOpacity>
 
         {onCancel && (
           <TouchableOpacity
-            style={[styles.cancelButton, disabled && styles.cancelButtonDisabled]}
+            className={`border ${
+              disabled ? 'border-gray-400' : 'border-blue-500'
+            } rounded-lg py-4 items-center`}
             onPress={onCancel}
             disabled={disabled}
           >
-            <Text style={[styles.cancelButtonText, disabled && styles.cancelButtonTextDisabled]}>
+            <Text className={`text-base font-semibold ${
+              disabled ? 'text-gray-400' : 'text-blue-500'
+            }`}>
               Cancel
             </Text>
           </TouchableOpacity>
@@ -198,109 +211,3 @@ export function ConfigurationScreen({
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  contentContainer: {
-    padding: 24,
-  },
-  header: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  form: {
-    gap: 24,
-    marginBottom: 32,
-  },
-  field: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  required: {
-    color: '#FF3B30',
-  },
-  description: {
-    fontSize: 14,
-    color: '#666666',
-    lineHeight: 18,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  inputDisabled: {
-    backgroundColor: '#F8F8F8',
-    color: '#999999',
-  },
-  actions: {
-    gap: 12,
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#CCCCCC',
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  cancelButtonDisabled: {
-    borderColor: '#CCCCCC',
-  },
-  cancelButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButtonTextDisabled: {
-    color: '#CCCCCC',
-  },
-  envIndicator: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  envValue: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-});
