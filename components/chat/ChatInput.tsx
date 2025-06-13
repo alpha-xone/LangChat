@@ -1,4 +1,5 @@
 import { useTheme } from '@/theme/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -11,13 +12,17 @@ import {
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
+  onStopStreaming?: () => void;
   disabled?: boolean;
+  isStreaming?: boolean;
   placeholder?: string;
 }
 
 export function ChatInput({
   onSendMessage,
+  onStopStreaming,
   disabled = false,
+  isStreaming = false,
   placeholder = "Type a message..."
 }: ChatInputProps) {
   const { theme } = useTheme();
@@ -28,6 +33,12 @@ export function ChatInput({
 
     onSendMessage(input.trim());
     setInput('');
+  };
+
+  const handleStop = () => {
+    if (onStopStreaming) {
+      onStopStreaming();
+    }
   };
 
   return (
@@ -68,34 +79,53 @@ export function ChatInput({
           placeholderTextColor={theme.text + '60'}
           multiline
           maxLength={1000}
-          editable={!disabled}
+          editable={!disabled && !isStreaming}
           onSubmitEditing={handleSend}
           blurOnSubmit={false}
         />
-        <TouchableOpacity
-          style={{
-            backgroundColor: (!input.trim() || disabled)
-              ? theme.text + '30'
-              : theme.primary,
-            borderRadius: 20,
-            paddingHorizontal: 20,
-            paddingVertical: 10,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-          onPress={handleSend}
-          disabled={!input.trim() || disabled}
-        >
-          <Text style={{
-            color: (!input.trim() || disabled)
-              ? theme.text + '60'
-              : '#FFFFFF',
-            fontSize: 16,
-            fontWeight: '600',
-          }}>
-            Send
-          </Text>
-        </TouchableOpacity>
+
+        {isStreaming ? (
+          <TouchableOpacity
+            style={{
+              backgroundColor: theme.error || '#FF3B30',
+              borderRadius: 20,
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              justifyContent: 'center',
+              alignItems: 'center',
+              flexDirection: 'row',
+              gap: 6,
+            }}
+            onPress={handleStop}
+          >
+            <Ionicons name="stop" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={{
+              backgroundColor: (!input.trim() || disabled)
+                ? theme.text + '30'
+                : theme.primary,
+              borderRadius: 20,
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            onPress={handleSend}
+            disabled={!input.trim() || disabled}
+          >
+            <Text style={{
+              color: (!input.trim() || disabled)
+                ? theme.text + '60'
+                : '#FFFFFF',
+              fontSize: 16,
+              fontWeight: '600',
+            }}>
+              Send
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

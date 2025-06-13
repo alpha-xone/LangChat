@@ -6,7 +6,6 @@ import { generateMessageId } from '@/lib/message-utils';
 import { debounce, mergeStreamingMessage, processStreamChunk } from '@/lib/stream-utils';
 import { StreamProvider, useStreamContext } from '@/providers/Stream';
 import { useTheme } from '@/theme/ThemeContext';
-import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -195,6 +194,7 @@ Your message: **${text.trim()}**
       );
     }
   }, [isDemoMode, streamContext, addMessage]);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -215,17 +215,15 @@ Your message: **${text.trim()}**
       setIsRefreshing(false);
     }
   }, [isDemoMode, streamContext]);
-  const handleInterrupt = useCallback(async () => {
+
+  const handleStopStreaming = useCallback(async () => {
     try {
       if (!isDemoMode && streamContext?.stop) {
         streamContext.stop();
-        Alert.alert('Success', 'Stream interrupted successfully');
-      } else {
-        Alert.alert('Info', 'No active stream to interrupt');
       }
     } catch (error) {
-      console.error('Failed to interrupt stream:', error);
-      Alert.alert('Error', 'Failed to interrupt stream');
+      console.error('Failed to stop stream:', error);
+      Alert.alert('Error', 'Failed to stop stream');
     }
   }, [isDemoMode, streamContext]);
 
@@ -282,29 +280,6 @@ Your message: **${text.trim()}**
               </Text>
             </TouchableOpacity>
           </View>
-          {isStreaming && (
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 16,
-                backgroundColor: theme.error + '20' || '#FF3B3020'
-              }}
-              onPress={handleInterrupt}
-            >
-              <Ionicons name="stop-circle" size={24} color={theme.error || '#FF3B30'} />
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: theme.error || '#FF3B30'
-              }}>
-                Stop
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <MessageList
@@ -327,7 +302,9 @@ Your message: **${text.trim()}**
 
         <ChatInput
           onSendMessage={handleSendMessage}
-          disabled={isStreaming}
+          onStopStreaming={handleStopStreaming}
+          disabled={false}
+          isStreaming={isStreaming}
           placeholder={
             isStreaming
               ? "AI is responding..."
