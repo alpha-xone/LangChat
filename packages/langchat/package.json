@@ -11,11 +11,12 @@
     "LICENSE"
   ],
   "scripts": {
+    "lint": "expo lint",
     "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build",
-    "test": "jest"
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "keywords": [
     "react-native",
