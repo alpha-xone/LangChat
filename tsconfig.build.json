@@ -1,0 +1,39 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "react-native",
+    "target": "es2017",
+    "lib": ["es2017", "dom"],
+    "module": "commonjs",
+    "strict": true,
+    "noEmit": false,
+    "isolatedModules": false
+  },
+  "include": [
+    "components/**/*",
+    "lib/**/*",
+    "theme/**/*",
+    "hooks/**/*",
+    "types/**/*",
+    "index.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "app",
+    "assets",
+    "scripts",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/__tests__/**",
+    ".expo"
+  ]
+}

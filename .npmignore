@@ -1,0 +1,42 @@
+# Expo and development files
+.expo/
+.git/
+.github/
+node_modules/
+
+# App-specific files (not needed for library)
+app/
+assets/
+scripts/
+app.json
+babel.config.js
+expo-env.d.ts
+tailwind.config.js
+
+# Development configs
+.env*
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build artifacts
+*.tgz
+*.tar.gz
+
+# Development only dependencies
+android/
+ios/
+web-build/
+
+# Testing and coverage
+coverage/
+.nyc_output/
+**/*.test.*
+**/*.spec.*
+**/__tests__/**
+
+# Source TypeScript files (we want compiled JS)
+tsconfig.json
+tsconfig.build.json

@@ -1,19 +1,78 @@
 {
-  "name": "expo-init-app",
-  "main": "expo-router/entry",
-  "version": "1.0.0",
+  "name": "@alpha.xone/langchat",
+  "version": "0.0.1",
+  "description": "Chat component with LangGraph integration",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "components",
+    "lib",
+    "theme",
+    "hooks",
+    "types",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "chat",
+    "components",
+    "langchain",
+    "langgraph",
+    "ai",
+    "messaging",
+    "ui"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alpha-xone/LangChat.git"
+  },
+  "homepage": "https://github.com/alpha-xone/LangChat/blob/main/README.md",
+  "bugs": {
+    "url": "https://github.com/alpha-xone/LangChat/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@langchain/core": "^0.3.58",
     "@langchain/langgraph-sdk": "^0.0.84",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "expo-clipboard": "^7.1.4",
+    "react-native-markdown-display": "^7.0.2"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.72.0",
+    "expo": ">=49.0.0",
+    "@expo/vector-icons": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/markdown-it": "^14.1.2",
+    "@types/react": "~19.0.10",
+    "eslint": "^9.25.0",
+    "eslint-config-expo": "~9.2.0",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.8.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-vector-icons/evil-icons": "^12.0.0",
     "@react-native-vector-icons/fontawesome6": "^12.0.0",
@@ -22,7 +81,6 @@
     "@react-navigation/native": "^7.1.6",
     "expo": "~53.0.9",
     "expo-blur": "~14.1.4",
-    "expo-clipboard": "^7.1.4",
     "expo-constants": "~17.1.6",
     "expo-font": "~13.3.1",
     "expo-haptics": "~14.1.4",
@@ -40,7 +98,6 @@
     "react-dom": "19.0.0",
     "react-native": "^0.79.2",
     "react-native-gesture-handler": "~2.24.0",
-    "react-native-markdown-display": "^7.0.2",
     "react-native-paper": "^5.14.5",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "^5.4.1",
@@ -49,14 +106,7 @@
     "react-native-webview": "13.13.5",
     "reanimated": "^0.0.1-alpha"
   },
-  "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@types/markdown-it": "^14.1.2",
-    "@types/react": "~19.0.10",
-    "eslint": "^9.25.0",
-    "eslint-config-expo": "~9.2.0",
-    "tailwindcss": "^3.4.17",
-    "typescript": "~5.8.3"
-  },
-  "private": true
+  "engines": {
+    "node": ">=16.0.0"
+  }
 }
