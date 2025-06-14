@@ -18,7 +18,7 @@
     "start": "expo start --entry-file index.js",
     "lint": "expo lint",
     "build": "tsc -p tsconfig.build.json",
-    "clean": "if exist dist rmdir /s /q dist",
+    "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build",
     "test": "echo \"No tests specified\" && exit 0"
