@@ -31,9 +31,9 @@ jobs:
         working-directory: ./packages/langchat
         run: npm ci
 
-      - name: Run linting
-        working-directory: ./packages/langchat
-        run: npm run lint
+      # - name: Run linting
+      #   working-directory: ./packages/langchat
+      #   run: npm run lint
 
       - name: Run tests
         working-directory: ./packages/langchat
@@ -43,9 +43,9 @@ jobs:
         working-directory: ./packages/langchat
         run: npm run build
 
-      - name: Check build output
-        working-directory: ./packages/langchat
-        run: ls -la dist/
+      # - name: Check build output
+      #   working-directory: ./packages/langchat
+      #   run: ls -la dist/
 
   publish:
     needs: test

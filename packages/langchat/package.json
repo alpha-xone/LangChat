@@ -11,9 +11,9 @@
     "LICENSE"
   ],
   "scripts": {
+    "clean": "rm -rf dist",
     "lint": "expo lint",
     "build": "tsc -p tsconfig.build.json",
-    "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build",
     "test": "echo \"No tests specified\" && exit 0"
