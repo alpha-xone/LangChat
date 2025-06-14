@@ -1,9 +1,11 @@
 import { ChatConfig } from '@/hooks/useChatConfig';
+import { useTheme } from '@/theme/ThemeContext';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -23,6 +25,8 @@ export function ConfigurationScreen({
   onCancel,
   isLoading = false,
 }: ConfigurationScreenProps) {
+  const { theme } = useTheme();
+
   // Get environment variables for placeholders
   const envApiUrl = process.env.EXPO_PUBLIC_API_URL || '';
   const envAssistantId = process.env.EXPO_PUBLIC_ASSISTANT_ID || '';
@@ -84,125 +88,247 @@ export function ConfigurationScreen({
 
   const disabled = isLoading || saving;
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    contentContainer: {
+      padding: 24,
+    },
+    headerContainer: {
+      marginBottom: 32,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.text,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 16,
+      color: theme.text + '99',
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    formContainer: {
+      gap: 24,
+      marginBottom: 32,
+    },
+    fieldContainer: {
+      gap: 8,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    requiredStar: {
+      color: '#EF4444',
+    },
+    envLabel: {
+      fontSize: 12,
+      color: '#3B82F6',
+      fontWeight: '500',
+    },
+    description: {
+      fontSize: 14,
+      color: theme.text + '99',
+      lineHeight: 20,
+    },
+    textInput: {
+      borderWidth: 1,
+      borderColor: theme.border || theme.text + '33',
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 16,
+      backgroundColor: theme.background,
+      color: theme.text,
+    },
+    textInputDisabled: {
+      backgroundColor: theme.text + '10',
+      color: theme.text + '80',
+    },
+    envText: {
+      fontSize: 12,
+      color: '#3B82F6',
+      marginTop: 4,
+      fontStyle: 'italic',
+    },
+    buttonContainer: {
+      gap: 12,
+    },
+    saveButton: {
+      borderRadius: 8,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    saveButtonEnabled: {
+      backgroundColor: '#3B82F6',
+    },
+    saveButtonDisabled: {
+      backgroundColor: theme.text + '40',
+    },
+    saveButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    cancelButton: {
+      borderRadius: 8,
+      paddingVertical: 16,
+      alignItems: 'center',
+      borderWidth: 1,
+    },
+    cancelButtonEnabled: {
+      borderColor: '#3B82F6',
+    },
+    cancelButtonDisabled: {
+      borderColor: theme.text + '40',
+    },
+    cancelButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    cancelButtonTextEnabled: {
+      color: '#3B82F6',
+    },
+    cancelButtonTextDisabled: {
+      color: theme.text + '40',
+    },
+  });
+
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 24 }}>
-      <View className="mb-8 items-center">
-        <Text className="text-3xl font-bold text-black mb-2 text-center">
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.title}>
           LangGraph Configuration
         </Text>
-        <Text className="text-base text-gray-600 text-center leading-6">
+        <Text style={styles.subtitle}>
           Connect to your LangGraph server to start chatting
         </Text>
       </View>
 
-      <View className="gap-6 mb-8">
-        <View className="gap-2">
-          <Text className="text-base font-semibold text-black">
-            API URL <Text className="text-red-500">*</Text>
+      <View style={styles.formContainer}>
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>
+            API URL <Text style={styles.requiredStar}>*</Text>
             {envApiUrl && (
-              <Text className="text-xs text-blue-500 font-medium"> (from .env)</Text>
+              <Text style={styles.envLabel}> (from .env)</Text>
             )}
           </Text>
-          <Text className="text-sm text-gray-600 leading-5">
+          <Text style={styles.description}>
             The URL of your LangGraph deployment (local or production)
           </Text>
           <TextInput
-            className={`border border-gray-300 rounded-lg px-4 py-3 text-base bg-white ${
-              disabled ? 'bg-gray-100 text-gray-500' : ''
-            }`}
+            style={[
+              styles.textInput,
+              disabled && styles.textInputDisabled,
+            ]}
             value={apiUrl}
             onChangeText={setApiUrl}
             placeholder={envApiUrl || "http://localhost:2024"}
+            placeholderTextColor={theme.text + '60'}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
             editable={!disabled}
           />
           {envApiUrl && !apiUrl && (
-            <Text className="text-xs text-blue-500 mt-1 italic">Using: {envApiUrl}</Text>
+            <Text style={styles.envText}>Using: {envApiUrl}</Text>
           )}
         </View>
 
-        <View className="gap-2">
-          <Text className="text-base font-semibold text-black">
-            Assistant / Graph ID <Text className="text-red-500">*</Text>
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>
+            Assistant / Graph ID <Text style={styles.requiredStar}>*</Text>
             {envAssistantId && (
-              <Text className="text-xs text-blue-500 font-medium"> (from .env)</Text>
+              <Text style={styles.envLabel}> (from .env)</Text>
             )}
           </Text>
-          <Text className="text-sm text-gray-600 leading-5">
+          <Text style={styles.description}>
             The ID of the graph or assistant to use for conversations
           </Text>
           <TextInput
-            className={`border border-gray-300 rounded-lg px-4 py-3 text-base bg-white ${
-              disabled ? 'bg-gray-100 text-gray-500' : ''
-            }`}
+            style={[
+              styles.textInput,
+              disabled && styles.textInputDisabled,
+            ]}
             value={assistantId}
             onChangeText={setAssistantId}
             placeholder={envAssistantId || "agent"}
+            placeholderTextColor={theme.text + '60'}
             autoCapitalize="none"
             autoCorrect={false}
             editable={!disabled}
           />
           {envAssistantId && !assistantId && (
-            <Text className="text-xs text-blue-500 mt-1 italic">Using: {envAssistantId}</Text>
+            <Text style={styles.envText}>Using: {envAssistantId}</Text>
           )}
         </View>
 
-        <View className="gap-2">
-          <Text className="text-base font-semibold text-black">
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>
             LangSmith API Key
             {envApiKey && (
-              <Text className="text-xs text-blue-500 font-medium"> (from .env)</Text>
+              <Text style={styles.envLabel}> (from .env)</Text>
             )}
           </Text>
-          <Text className="text-sm text-gray-600 leading-5">
+          <Text style={styles.description}>
             Required for deployed LangGraph servers. Not needed for local development.
           </Text>
           <TextInput
-            className={`border border-gray-300 rounded-lg px-4 py-3 text-base bg-white ${
-              disabled ? 'bg-gray-100 text-gray-500' : ''
-            }`}
+            style={[
+              styles.textInput,
+              disabled && styles.textInputDisabled,
+            ]}
             value={apiKey}
             onChangeText={setApiKey}
             placeholder={envApiKey ? "••••••••••••" : "lsv2_pt_..."}
+            placeholderTextColor={theme.text + '60'}
             autoCapitalize="none"
             autoCorrect={false}
             secureTextEntry={true}
             editable={!disabled}
           />
           {envApiKey && !apiKey && (
-            <Text className="text-xs text-blue-500 mt-1 italic">Using environment variable</Text>
+            <Text style={styles.envText}>Using environment variable</Text>
           )}
         </View>
       </View>
 
-      <View className="gap-3">
+      <View style={styles.buttonContainer}>
         <TouchableOpacity
-          className={`${
-            disabled ? 'bg-gray-400' : 'bg-blue-500'
-          } rounded-lg py-4 items-center`}
+          style={[
+            styles.saveButton,
+            disabled ? styles.saveButtonDisabled : styles.saveButtonEnabled,
+          ]}
           onPress={handleSave}
           disabled={disabled}
         >
           {saving ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text className="text-white text-base font-semibold">Save Configuration</Text>
+            <Text style={styles.saveButtonText}>Save Configuration</Text>
           )}
         </TouchableOpacity>
 
         {onCancel && (
           <TouchableOpacity
-            className={`border ${
-              disabled ? 'border-gray-400' : 'border-blue-500'
-            } rounded-lg py-4 items-center`}
+            style={[
+              styles.cancelButton,
+              disabled ? styles.cancelButtonDisabled : styles.cancelButtonEnabled,
+            ]}
             onPress={onCancel}
             disabled={disabled}
           >
-            <Text className={`text-base font-semibold ${
-              disabled ? 'text-gray-400' : 'text-blue-500'
-            }`}>
+            <Text style={[
+              styles.cancelButtonText,
+              disabled ? styles.cancelButtonTextDisabled : styles.cancelButtonTextEnabled,
+            ]}>
               Cancel
             </Text>
           </TouchableOpacity>

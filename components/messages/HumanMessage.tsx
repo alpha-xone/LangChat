@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
-import { Dimensions, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 interface HumanMessageProps {
@@ -14,7 +14,7 @@ interface HumanMessageProps {
 
 export function HumanMessage({ message, onCopy }: HumanMessageProps) {
   const { theme } = useTheme();
-  const content = getContentString(message);
+  const content = getContentString(message?.content);
   const screenWidth = Dimensions.get('window').width;
   const maxMessageWidth = screenWidth * 0.85;
 
@@ -28,7 +28,7 @@ export function HumanMessage({ message, onCopy }: HumanMessageProps) {
   };
 
   // Markdown styles for human messages (white text on primary background)
-  const markdownStyles = {
+  const markdownStyles = StyleSheet.create({
     body: {
       color: '#FFFFFF',
       fontSize: 16,
@@ -212,7 +212,7 @@ export function HumanMessage({ message, onCopy }: HumanMessageProps) {
       color: '#B3D9FF',
       textDecorationLine: 'underline',
     },
-  };
+  });
 
   // Custom renderer for code blocks to make them horizontally scrollable
   const renderCodeBlock = (node: any, children: any, parent: any, styles: any) => {
@@ -243,27 +243,37 @@ export function HumanMessage({ message, onCopy }: HumanMessageProps) {
     );
   };
 
-  return (
-    <View style={{
+  const styles = StyleSheet.create({
+    container: {
       flexDirection: 'column',
       alignItems: 'flex-end',
       marginBottom: 16,
       paddingHorizontal: 16,
-    }}>
-      <View style={{
-        maxWidth: maxMessageWidth,
-      }}>
-        <View style={{
-          backgroundColor: theme.primary,
-          borderRadius: 18,
-          paddingHorizontal: 12,
-          paddingVertical: 3,
-          elevation: 2,
-          shadowColor: theme.primary,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.2,
-          shadowRadius: 4,
-        }}>
+    },
+    messageWrapper: {
+      maxWidth: maxMessageWidth,
+    },
+    messageContainer: {
+      backgroundColor: theme.primary,
+      borderRadius: 18,
+      paddingHorizontal: 12,
+      paddingVertical: 3,
+      elevation: 2,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    copyButton: {
+      marginTop: 8,
+      marginRight: 12,
+    },
+  });
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.messageWrapper}>
+        <View style={styles.messageContainer}>
           <Markdown
             style={markdownStyles}
             rules={{
@@ -277,7 +287,7 @@ export function HumanMessage({ message, onCopy }: HumanMessageProps) {
       </View>
 
       {/* Copy button - below message, aligned right */}
-      <TouchableOpacity className='top-2 right-3' onPress={handleCopy}>
+      <TouchableOpacity style={styles.copyButton} onPress={handleCopy}>
         <Ionicons
           name="copy-outline"
           size={16}

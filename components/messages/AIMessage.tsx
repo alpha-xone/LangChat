@@ -1,9 +1,10 @@
+import { getContentString } from '@/lib/message-utils'; // Import the new utility function
 import { useTheme } from '@/theme/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
-import { Dimensions, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 
 interface AIMessageProps {
@@ -14,21 +15,21 @@ interface AIMessageProps {
 
 export function AIMessage({ message, isLoading = false, onCopy }: AIMessageProps) {
   const { theme } = useTheme();
-  const screenWidth = Dimensions.get('window').width;
+  const displayContent = getContentString(message?.content);
 
   const handleCopy = async () => {
-    if (!message?.content) return;
+    if (!displayContent) return;
 
     try {
-      await Clipboard.setStringAsync(message.content);
-      onCopy?.(message.content);
+      await Clipboard.setStringAsync(displayContent);
+      onCopy?.(displayContent);
     } catch (error) {
       console.error('Failed to copy message:', error);
     }
   };
 
   // Markdown styles that adapt to theme
-  const markdownStyles = {
+  const markdownStyles = StyleSheet.create({
     body: {
       fontSize: 16,
       lineHeight: 24,
@@ -170,26 +171,57 @@ export function AIMessage({ message, isLoading = false, onCopy }: AIMessageProps
       height: 1,
       marginVertical: 16,
     },
-  };
+  });
+
+  const styles = StyleSheet.create({
+    container: {
+      marginBottom: 16,
+      paddingHorizontal: 16,
+    },
+    loadingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    loadingText: {
+      color: theme.text + '60',
+      fontSize: 14,
+      marginLeft: 8,
+      fontStyle: 'italic',
+    },
+    toolCallsContainer: {
+      marginTop: 12,
+      padding: 12,
+      backgroundColor: theme.primary + '10',
+      borderRadius: 8,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.primary,
+    },
+    toolCallLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.primary,
+      marginBottom: 4,
+    },
+    toolCallText: {
+      fontSize: 14,
+      color: theme.text,
+      fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    },
+    copyButton: {
+      marginLeft: 4,
+    },
+  });
 
   if (isLoading) {
     return (
-      <View style={{
-        marginBottom: 16,
-        paddingHorizontal: 16,
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
           <Ionicons
             name="ellipsis-horizontal"
             size={16}
             color={theme.text + '60'}
           />
-          <Text style={{
-            color: theme.text + '60',
-            fontSize: 14,
-            marginLeft: 8,
-            fontStyle: 'italic'
-          }}>
+          <Text style={styles.loadingText}>
             AI is typing...
           </Text>
         </View>
@@ -229,10 +261,7 @@ export function AIMessage({ message, isLoading = false, onCopy }: AIMessageProps
   };
 
   return (
-    <View style={{
-      marginBottom: 16,
-      paddingHorizontal: 16,
-    }}>
+    <View style={styles.container}>
       {/* Message Content with Markdown - Full Width */}
       <Markdown
         style={markdownStyles}
@@ -241,25 +270,13 @@ export function AIMessage({ message, isLoading = false, onCopy }: AIMessageProps
           fence: renderCodeBlock,
         }}
       >
-        {message.content || ''}
+        {displayContent}
       </Markdown>
 
       {/* Tool calls if any */}
-      {message.tool_calls && message.tool_calls.length > 0 && (
-        <View style={{
-          marginTop: 12,
-          padding: 12,
-          backgroundColor: theme.primary + '10',
-          borderRadius: 8,
-          borderLeftWidth: 3,
-          borderLeftColor: theme.primary,
-        }}>
-          <Text style={{
-            fontSize: 12,
-            fontWeight: '600',
-            color: theme.primary,
-            marginBottom: 4,
-          }}>
+      {message.type === 'ai' && message.tool_calls && message.tool_calls.length > 0 && (
+        <View style={styles.toolCallsContainer}>
+          <Text style={styles.toolCallLabel}>
             Tool Call
           </Text>
           {message.tool_calls.map((tool, index) => (
@@ -268,11 +285,7 @@ export function AIMessage({ message, isLoading = false, onCopy }: AIMessageProps
               horizontal
               showsHorizontalScrollIndicator={true}
             >
-              <Text style={{
-                fontSize: 14,
-                color: theme.text,
-                fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-              }}>
+              <Text style={styles.toolCallText}>
                 {tool.name}({JSON.stringify(tool.args)})
               </Text>
             </ScrollView>
@@ -281,7 +294,7 @@ export function AIMessage({ message, isLoading = false, onCopy }: AIMessageProps
       )}
 
       {/* Copy button - below message, aligned left */}
-      <TouchableOpacity className='left-1' onPress={handleCopy}>
+      <TouchableOpacity style={styles.copyButton} onPress={handleCopy}>
         <Ionicons
           name="copy-outline"
           size={16}

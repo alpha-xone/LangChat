@@ -13,18 +13,15 @@ export { StreamingDemo } from './components/demo/StreamingDemo';
 export { Toast } from './components/ui/Toast';
 
 // Utilities
-export * from './lib/config';
 export * from './lib/message-utils';
-export * from './lib/stream-context';
+export * from './lib/stream-utils';
 
 // Theme
 export { ThemeProvider, useTheme } from './theme/ThemeContext';
-export * from './theme/themes';
 
 // Hooks
 export { useChatConfig } from './hooks/useChatConfig';
-export { useStreamContext } from './hooks/useStreamContext';
+export { useLangGraphStream } from './hooks/useLangGraphStream';
 
 // Types
-export type { Config } from './types/config';
-export type { Message } from './types/message';
+export type * from './types';

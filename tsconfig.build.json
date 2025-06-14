@@ -4,36 +4,26 @@
     "outDir": "./dist",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "skipLibCheck": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "jsx": "react-native",
-    "target": "es2017",
-    "lib": ["es2017", "dom"],
-    "module": "commonjs",
-    "strict": true,
+    "emitDeclarationOnly": false,
     "noEmit": false,
-    "isolatedModules": false
+    "skipLibCheck": true
   },
   "include": [
+    "index.ts",
     "components/**/*",
     "lib/**/*",
     "theme/**/*",
     "hooks/**/*",
     "types/**/*",
-    "index.ts"
+    "providers/**/*"
   ],
   "exclude": [
-    "node_modules",
-    "dist",
-    "app",
-    "assets",
-    "scripts",
-    "**/*.test.*",
-    "**/*.spec.*",
-    "**/__tests__/**",
-    ".expo"
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "app/**/*",
+    "scripts/**/*",
+    "dist/**/*"
   ]
 }

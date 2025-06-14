@@ -9,6 +9,8 @@
     }
   },
   "include": [
+    "index.js",
+    "main-expo.ts",
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
