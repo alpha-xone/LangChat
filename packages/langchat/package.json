@@ -1,6 +1,6 @@
 {
   "name": "@alpha.xone/langchat",
-  "version": "0.0.3",
+  "version": "0.0.5-beta-01",
   "description": "Chat component with LangGraph integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "rimraf dist",
     "lint": "expo lint",
     "build": "tsc -p tsconfig.build.json",
     "prebuild": "npm run clean",
@@ -57,7 +57,7 @@
     "markdown-it": "^14.1.0"
   },
   "peerDependencies": {
-    "react": "^19.1.0",
+    "react": "^19.0.0",
     "react-native": "^0.79.3",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-reanimated": "~3.17.4",

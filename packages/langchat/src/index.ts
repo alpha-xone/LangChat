@@ -1,3 +1,2 @@
-export * from './components/ChatInput';
-export * from './components/MessageList';
-
+export { default as ChatScreen } from './components/ChatScreen';
+export * from './config/ConfigurationScreen';
