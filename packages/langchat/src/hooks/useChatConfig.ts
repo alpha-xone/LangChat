@@ -10,9 +10,9 @@ export interface ChatConfig {
 // Function to get environment variables
 const getEnvConfig = (): Partial<ChatConfig> => {
   return {
-    apiUrl: process.env.LANGGRAPH_API_URL || '',
-    apiKey: process.env.LANGGRAPH_API_KEY || '',
-    assistantId: process.env.LANGGRAPH_ASSISTANT_ID || '',
+    apiUrl: process.env.EXPO_PUBLIC_LANGGRAPH_API_URL || '',
+    apiKey: process.env.EXPO_PUBLIC_LANGGRAPH_API_KEY || '',
+    assistantId: process.env.EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID || '',
   };
 };
 
@@ -23,11 +23,6 @@ export const useChatConfig = () => {
     assistantId: '',
   });
   const [isLoading, setIsLoading] = useState(true);
-
-  // Load configuration on mount
-  useEffect(() => {
-    loadConfig();
-  }, []);
 
   const loadConfig = useCallback(async () => {
     try {
@@ -68,6 +63,11 @@ export const useChatConfig = () => {
       setIsLoading(false);
     }
   }, []);
+
+  // Load configuration on mount
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   const updateConfig = useCallback(async (newConfig: ChatConfig): Promise<boolean> => {
     try {

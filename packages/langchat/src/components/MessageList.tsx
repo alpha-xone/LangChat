@@ -34,6 +34,9 @@ export function MessageList({
   // Filter out messages that shouldn't be rendered
   const renderableMessages = filterRenderableMessages(messages);
 
+  // Extract the complex expression to a separate variable
+  const lastMessageContent = renderableMessages[renderableMessages.length - 1]?.content;
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (renderableMessages.length > 0) {
@@ -43,7 +46,7 @@ export function MessageList({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [renderableMessages.length, renderableMessages[renderableMessages.length - 1]?.content]);
+  }, [renderableMessages.length, lastMessageContent]);
 
   const handleCopy = (text: string) => {
     setToast({ visible: true, message: 'Message copied to clipboard' });
@@ -62,7 +65,7 @@ export function MessageList({
       case 'ai':
         return <AIMessage key={key} message={message} onCopy={handleCopy} />;
       case 'tool':
-        // Tool messages are typically not rendered directly in the UI
+        // Tool messages are typically not rendered in the UI
         return null;
       default:
         return (

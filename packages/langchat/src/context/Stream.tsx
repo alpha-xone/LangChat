@@ -35,9 +35,9 @@ const StreamContext = createContext<StreamContextType>(null);
 // Function to load environment variables
 const getEnvConfig = () => {
   return {
-    apiUrl: process.env.LANGGRAPH_API_URL || '',
-    assistantId: process.env.LANGGRAPH_ASSISTANT_ID || '',
-    apiKey: process.env.LANGGRAPH_API_KEY || '',
+    apiUrl: process.env.EXPO_PUBLIC_LANGGRAPH_API_URL || '',
+    assistantId: process.env.EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID || '',
+    apiKey: process.env.EXPO_PUBLIC_LANGGRAPH_API_KEY || '',
   };
 };
 
@@ -90,7 +90,7 @@ const StreamSession = ({
       console.error('Failed to initialize LangGraph client:', error);
       onError?.('Failed to initialize LangGraph client');
     }
-  }, [apiUrl, apiKey, onError]);
+  }, [apiUrl, apiKey, assistantId, onError]);
 
   // Create thread when client is ready
   useEffect(() => {
@@ -204,10 +204,7 @@ export const StreamProvider: React.FC<{
     apiKey: finalConfig.apiKey ? '***hidden***' : null
   });
 
-  const [error, setError] = useState<string | null>(null);
-
   const handleError = (errorMessage: string) => {
-    setError(errorMessage);
     console.warn('StreamProvider error:', errorMessage);
   };
 

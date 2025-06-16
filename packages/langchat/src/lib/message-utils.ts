@@ -5,7 +5,7 @@ type LocalMessageContent = Message['content'];
 
 // Infer MessageContentComplex from LocalMessageContent if it's an array
 // This extracts the element type if LocalMessageContent is an array
-type LocalMessageContentComplex = Extract<LocalMessageContent, Array<any>>[number];
+type LocalMessageContentComplex = Extract<LocalMessageContent, any[]>[number];
 
 
 // Prefix for messages that should not be rendered

@@ -28,9 +28,9 @@ export function ConfigurationScreen({
   const { theme } = useTheme();
 
   // Get environment variables for placeholders
-  const envApiUrl = process.env.LANGGRAPH_API_URL || '';
-  const envAssistantId = process.env.LANGGRAPH_ASSISTANT_ID || '';
-  const envApiKey = process.env.LANGGRAPH_API_KEY || '';
+  const envApiUrl = process.env.EXPO_PUBLIC_LANGGRAPH_API_URL || '';
+  const envAssistantId = process.env.EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID || '';
+  const envApiKey = process.env.EXPO_PUBLIC_LANGGRAPH_API_KEY || '';
 
   // Initialize with config values or env values as fallback
   const [apiUrl, setApiUrl] = useState(config.apiUrl || envApiUrl);

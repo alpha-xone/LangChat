@@ -1,14 +1,15 @@
-import React, { useCallback, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Message } from '@langchain/langgraph-sdk';
+import React, { useCallback } from 'react';
 import {
   Alert,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Message } from '@langchain/langgraph-sdk';
-import { generateMessageId } from '../../lib/message-utils';
 import { useTheme } from '../../context/ThemeContext';
+import { generateMessageId } from '../../lib/message-utils';
+import { sleep } from '../../lib/utils';
 
 interface StreamingDemoProps {
   onAddMessage: (message: Message) => void;
@@ -26,13 +27,11 @@ export function StreamingDemo({
   currentMode = 'demo'
 }: StreamingDemoProps) {
   const { theme } = useTheme();
-  const [demoStep, setDemoStep] = useState(0);
 
   const runDemo = useCallback(async () => {
     if (isStreaming) return;
 
     setIsStreaming(true);
-    setDemoStep(0);
 
     try {
       // Step 1: User sends a message
@@ -43,10 +42,9 @@ export function StreamingDemo({
       };
 
       onAddMessage(userMessage);
-      setDemoStep(1);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await sleep(1000);
 
-      // Step 2: AI starts responding (streaming simulation)
+      // Step 2: AI starts responding
       const responses = [
         'Hello! I\'d be happy to explain streaming.',
         'Streaming allows messages to appear in real-time...',
@@ -66,12 +64,11 @@ export function StreamingDemo({
         };
 
         onAddMessage(aiMessage);
-        setDemoStep(2 + i);
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await sleep(800);
       }
 
       // Step 3: Show tool call example
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await sleep(500);
 
       const toolCallMessage: Message = {
         id: generateMessageId(),
@@ -87,7 +84,7 @@ export function StreamingDemo({
       } as any;
 
       onAddMessage(toolCallMessage);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await sleep(1000);
 
       const finalMessage: Message = {
         id: generateMessageId(),
@@ -102,7 +99,6 @@ export function StreamingDemo({
       Alert.alert('Demo Error', 'Failed to run streaming demo');
     } finally {
       setIsStreaming(false);
-      setDemoStep(0);
     }
   }, [isStreaming, onAddMessage, setIsStreaming]);
 
