@@ -14,10 +14,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useChatConfig } from '../hooks/useChatConfig';
 import { getMarkdownExample, getRandomMarkdownExample } from '../lib/markdown-examples';
 import { generateMessageId } from '../lib/message-utils';
-import { debounce, mergeStreamingMessage, processStreamChunk } from '../lib/stream-utils';
+import { mergeStreamingMessage, processStreamChunk } from '../lib/stream-utils';
 import { ChatInput } from './ChatInput';
 import { MessageList } from './MessageList';
-
 import { StreamingDemo } from './demo/StreamingDemo';
 
 function ChatInterface() {
@@ -54,10 +53,16 @@ function ChatInterface() {
   }, []);
   // Debounced message update function to prevent too frequent re-renders
   const debouncedUpdateMessages = useCallback(
-    debounce((newMessages: Message[]) => {
-      setMessages(newMessages);
-    }, 50),
-    []
+    (newMessages: Message[]) => {
+      // Simple debounce implementation inline
+      const timeoutId = setTimeout(() => {
+        setMessages(newMessages);
+      }, 50);
+
+      // Clear previous timeout if function is called again quickly
+      return () => clearTimeout(timeoutId);
+    },
+    [setMessages]
   );
 
   // Process streaming chunks from LangGraph
@@ -75,30 +80,76 @@ function ChatInterface() {
       console.error('Error processing streaming chunk:', error);
     }
   }, []);
-  // Update messages when stream context messages change
+  // Process chunk queue
+  const processChunkQueue = useCallback(async () => {
+    if (isProcessingChunksRef.current || chunkQueueRef.current.length === 0) {
+      return;
+    }
+
+    isProcessingChunksRef.current = true;
+
+    try {
+      while (chunkQueueRef.current.length > 0) {
+        const chunk = chunkQueueRef.current.shift();
+        if (chunk) {
+          processStreamingChunk(chunk);
+          // Small delay to prevent UI blocking
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+    } finally {
+      isProcessingChunksRef.current = false;
+    }
+  }, [processStreamingChunk]);
+
+  // Handle incoming stream data
   useEffect(() => {
     if (!isDemoMode && streamContext?.messages) {
-      // Use optional chaining to safely access messages
       const streamMessages = streamContext.messages;
+
+      if (Array.isArray(streamMessages) && streamMessages.length > 0) {
+        // Check if this is real-time streaming data vs complete messages
+        const lastMessage = streamMessages[streamMessages.length - 1];
+
+        // If we have a new message or updated content, process it
+        if (lastMessage && lastMessage.content) {
+          // Add to chunk queue for processing
+          chunkQueueRef.current.push(lastMessage);
+          processChunkQueue();
+        }
+      }
+    }
+  }, [streamContext?.messages, isDemoMode, processChunkQueue]);
+
+  // Alternative: Direct message updates (simpler approach)
+  useEffect(() => {
+    if (!isDemoMode && streamContext?.messages) {
+      const streamMessages = streamContext.messages;
+
       if (Array.isArray(streamMessages) && streamMessages.length > 0) {
         // Filter and process valid messages
         const validMessages = streamMessages.filter(msg =>
           msg && typeof msg === 'object' && msg.content
         );
 
-        if (validMessages.length > messagesRef.current.length) {
-          setMessages(validMessages);
+        // Use debounced update to prevent too frequent re-renders
+        if (validMessages.length !== messagesRef.current.length ||
+            JSON.stringify(validMessages) !== JSON.stringify(messagesRef.current)) {
+          debouncedUpdateMessages(validMessages);
         }
       }
     }
-  }, [streamContext?.messages?.length, isDemoMode]); // Only depend on message length, not the array itself
+  }, [streamContext?.messages, isDemoMode, debouncedUpdateMessages]);
 
   // Clear messages when switching modes
   useEffect(() => {
     if (isDemoMode) {
       setMessages([]);
+      // Clear chunk queue when switching to demo mode
+      chunkQueueRef.current = [];
     }
   }, [isDemoMode]);
+
   // Real LangGraph message handling
   const handleSendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
@@ -110,7 +161,9 @@ function ChatInterface() {
         type: 'human',
         content: text.trim(),
       };
-      addMessage(humanMessage);      // Simulate AI response with markdown examples
+      addMessage(humanMessage);
+
+      // Simulate AI response with markdown examples
       setTimeout(() => {
         let demoContent = `Demo Echo: ${text.trim()}`;
 
@@ -127,7 +180,6 @@ function ChatInterface() {
         } else if (lowerText.includes('basic')) {
           demoContent = getMarkdownExample('basic');
         } else {
-          // For any other message, show a simple markdown demo
           demoContent = `# Demo Response
 
 Your message: **${text.trim()}**
@@ -177,6 +229,9 @@ Your message: **${text.trim()}**
       };
       addMessage(userMessage);
 
+      // Clear chunk queue before new message
+      chunkQueueRef.current = [];
+
       // Use the submit method to send messages
       if (streamContext?.submit) {
         await streamContext.submit({
@@ -198,14 +253,14 @@ Your message: **${text.trim()}**
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
+      // Clear chunk queue on refresh
+      chunkQueueRef.current = [];
+
       if (!isDemoMode && streamContext?.createNewThread) {
-        // Create a new thread for fresh conversation
         await streamContext.createNewThread();
       } else if (!isDemoMode && streamContext?.clearMessages) {
-        // Clear messages using stream context
         streamContext.clearMessages();
       } else {
-        // Just clear local messages in demo mode
         setMessages([]);
       }
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -218,6 +273,10 @@ Your message: **${text.trim()}**
 
   const handleStopStreaming = useCallback(async () => {
     try {
+      // Clear chunk queue when stopping
+      chunkQueueRef.current = [];
+      isProcessingChunksRef.current = false;
+
       if (!isDemoMode && streamContext?.stop) {
         streamContext.stop();
       }
@@ -230,6 +289,8 @@ Your message: **${text.trim()}**
   const toggleMode = useCallback(() => {
     setIsDemoMode(prev => !prev);
     setMessages([]);
+    // Clear chunk queue when switching modes
+    chunkQueueRef.current = [];
   }, []);
 
   const isStreaming = isDemoMode ? false : (streamContext?.isLoading ?? false);
