@@ -35,9 +35,9 @@ const StreamContext = createContext<StreamContextType>(null);
 // Function to load environment variables
 const getEnvConfig = () => {
   return {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || '',
-    assistantId: process.env.EXPO_PUBLIC_ASSISTANT_ID || '',
-    apiKey: process.env.EXPO_PUBLIC_API_KEY || '',
+    apiUrl: process.env.LANGGRAPH_API_URL || '',
+    assistantId: process.env.LANGGRAPH_ASSISTANT_ID || '',
+    apiKey: process.env.LANGGRAPH_API_KEY || '',
   };
 };
 

@@ -10,9 +10,9 @@ export interface ChatConfig {
 // Function to get environment variables
 const getEnvConfig = (): Partial<ChatConfig> => {
   return {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || '',
-    apiKey: process.env.EXPO_PUBLIC_API_KEY || '',
-    assistantId: process.env.EXPO_PUBLIC_ASSISTANT_ID || '',
+    apiUrl: process.env.LANGGRAPH_API_URL || '',
+    apiKey: process.env.LANGGRAPH_API_KEY || '',
+    assistantId: process.env.LANGGRAPH_ASSISTANT_ID || '',
   };
 };
 

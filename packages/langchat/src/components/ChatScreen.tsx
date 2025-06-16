@@ -324,9 +324,9 @@ export default function ChatScreen() {
 
   // Get environment variables as fallback
   const envConfig = {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || '',
-    assistantId: process.env.EXPO_PUBLIC_ASSISTANT_ID || '',
-    apiKey: process.env.EXPO_PUBLIC_API_KEY || '',
+    apiUrl: process.env.LANGGRAPH_API_URL || '',
+    assistantId: process.env.LANGGRAPH_ASSISTANT_ID || '',
+    apiKey: process.env.LANGGRAPH_API_KEY || '',
   };
 
   // Check if we have configuration from either stored config or environment
@@ -391,7 +391,7 @@ export default function ChatScreen() {
             marginTop: 16,
             fontStyle: 'italic'
           }}>
-            Or add EXPO_PUBLIC_API_URL and EXPO_PUBLIC_ASSISTANT_ID to your .env file
+            Or add LANGGRAPH_API_URL and LANGGRAPH_ASSISTANT_ID to your .env file
           </Text>
         )}
       </SafeAreaView>
