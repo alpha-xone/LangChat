@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { generateMessageId } from '../../lib/message-utils';
-import { sleep } from '../../lib/utils';
+import { Theme } from '../../theme'; // Updated import
+
+// Utility functions for the demo
+const generateMessageId = () => `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 interface StreamingDemoProps {
   onAddMessage: (message: Message) => void;
@@ -17,6 +19,7 @@ interface StreamingDemoProps {
   setIsStreaming: (streaming: boolean) => void;
   showModeInfo?: boolean;
   currentMode?: 'demo' | 'live';
+  theme: Theme; // Add theme prop
 }
 
 export function StreamingDemo({
@@ -24,10 +27,9 @@ export function StreamingDemo({
   isStreaming,
   setIsStreaming,
   showModeInfo = false,
-  currentMode = 'demo'
+  currentMode = 'demo',
+  theme, // Receive theme prop
 }: StreamingDemoProps) {
-  const { theme } = useTheme();
-
   const runDemo = useCallback(async () => {
     if (isStreaming) return;
 
@@ -113,51 +115,43 @@ export function StreamingDemo({
 
   return (
     <View style={{
-      backgroundColor: theme.surface || theme.background,
-      marginHorizontal: 16,
-      marginVertical: 12,
       padding: 20,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: theme.border || theme.text + '20',
-      elevation: 2,
-      shadowColor: theme.text,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      backgroundColor: theme.background,
     }}>
-      {/* Header */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16
-      }}>
-        <Ionicons
-          name={currentMode === 'demo' ? 'play-circle-outline' : 'thunderstorm-outline'}
-          size={24}
-          color={theme.primary}
-        />
-        <Text style={{
-          fontSize: 18,
-          fontWeight: '600',
-          color: theme.text,
-          marginLeft: 8
-        }}>
-          {currentMode === 'demo' ? 'Demo Mode' : 'Live Chat'}
-        </Text>
-      </View>
-
-      {/* Description */}
       <Text style={{
-        fontSize: 14,
-        color: theme.text + '80',
-        lineHeight: 20,
-        marginBottom: 20
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: theme.text,
+        textAlign: 'center',
+        marginBottom: 16,
       }}>
-        {currentMode === 'demo'
-          ? 'Try the demo features below or start typing to see markdown rendering and AI responses.'
-          : 'Connected to live AI assistant. Start typing to begin your conversation.'
-        }
+        Welcome to LangChat
+      </Text>
+
+      {showModeInfo && (
+        <View style={{
+          backgroundColor: theme.surface,
+          borderRadius: 8,
+          padding: 16,
+          marginBottom: 16,
+        }}>
+          <Text style={{
+            color: theme.text,
+            fontSize: 14,
+            textAlign: 'center',
+          }}>
+            Currently in {currentMode} mode
+          </Text>
+        </View>
+      )}
+
+      <Text style={{
+        color: theme.text,
+        fontSize: 14,
+        textAlign: 'center',
+        opacity: 0.7,
+      }}>
+        Start a conversation by typing a message below
       </Text>
 
       {/* Demo buttons - only show in demo mode */}

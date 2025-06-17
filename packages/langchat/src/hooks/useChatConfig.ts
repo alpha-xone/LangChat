@@ -7,20 +7,27 @@ export interface ChatConfig {
   assistantId: string;
 }
 
-// Function to get environment variables
-const getEnvConfig = (): Partial<ChatConfig> => {
+// Default configuration values
+const DEFAULT_CONFIG = {
+  apiUrl: 'http://localhost:2024',
+  assistantId: 'agent',
+  apiKey: '',
+} as const;
+
+// Function to get environment variables with defaults
+const getEnvConfig = (): ChatConfig => {
   return {
-    apiUrl: process.env.EXPO_PUBLIC_LANGGRAPH_API_URL || '',
-    apiKey: process.env.EXPO_PUBLIC_LANGGRAPH_API_KEY || '',
-    assistantId: process.env.EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID || '',
+    apiUrl: process.env.EXPO_PUBLIC_LANGGRAPH_API_URL || DEFAULT_CONFIG.apiUrl,
+    apiKey: process.env.EXPO_PUBLIC_LANGGRAPH_API_KEY || DEFAULT_CONFIG.apiKey,
+    assistantId: process.env.EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID || DEFAULT_CONFIG.assistantId,
   };
 };
 
 export const useChatConfig = () => {
   const [config, setConfig] = useState<ChatConfig>({
-    apiUrl: '',
-    apiKey: '',
-    assistantId: '',
+    apiUrl: DEFAULT_CONFIG.apiUrl,
+    apiKey: DEFAULT_CONFIG.apiKey,
+    assistantId: DEFAULT_CONFIG.assistantId,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -28,7 +35,7 @@ export const useChatConfig = () => {
     try {
       setIsLoading(true);
 
-      // Get environment variables
+      // Get environment variables with defaults
       const envConfig = getEnvConfig();
       console.log('Environment config loaded:', envConfig);
 
@@ -40,11 +47,11 @@ export const useChatConfig = () => {
 
       console.log('Stored config loaded:', storedConfig);
 
-      // Merge: stored config overrides env config
+      // Merge: stored config overrides env config, env config overrides defaults
       const mergedConfig: ChatConfig = {
-        apiUrl: storedConfig.apiUrl || envConfig.apiUrl || '',
-        apiKey: storedConfig.apiKey || envConfig.apiKey || '',
-        assistantId: storedConfig.assistantId || envConfig.assistantId || '',
+        apiUrl: storedConfig.apiUrl || envConfig.apiUrl,
+        apiKey: storedConfig.apiKey || envConfig.apiKey,
+        assistantId: storedConfig.assistantId || envConfig.assistantId,
       };
 
       console.log('Final merged config:', mergedConfig);
@@ -52,13 +59,9 @@ export const useChatConfig = () => {
 
     } catch (error) {
       console.error('Error loading configuration:', error);
-      // Fall back to environment variables only
+      // Fall back to environment variables with defaults
       const envConfig = getEnvConfig();
-      setConfig({
-        apiUrl: envConfig.apiUrl || '',
-        apiKey: envConfig.apiKey || '',
-        assistantId: envConfig.assistantId || '',
-      });
+      setConfig(envConfig);
     } finally {
       setIsLoading(false);
     }
@@ -80,6 +83,7 @@ export const useChatConfig = () => {
     }
   }, []);
 
+  // Configuration is always considered valid now with defaults
   const isConfigured = !!(config.apiUrl && config.assistantId);
 
   return {

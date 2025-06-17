@@ -2,14 +2,21 @@ import { useAppTheme } from "@/contexts/AppThemeContext";
 import ChatScreen from "@/packages/langchat/src/components/ChatScreen";
 import { View } from "react-native";
 
-export default function ChatPage() {
+export default function StandaloneChatPage() {
   const { currentTheme, mode, setMode } = useAppTheme();
+
+  // Custom theme overrides (optional)
+  const customTheme = {
+    ...currentTheme,
+    primary: '#FF6B6B', // Override primary color for standalone
+    accent: '#4ECDC4',  // Override accent color
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: currentTheme.background }}>
       <ChatScreen
         themeMode={mode}
-        theme={currentTheme}
+        theme={customTheme}
         showDemo={true}
         onThemeChange={setMode} // Sync theme changes back to app
         config={{

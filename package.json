@@ -1,7 +1,7 @@
 {
-  "name": "langchat-app",
+  "name": "langchat-npm-app",
   "main": "expo-router/entry",
-  "version": "0.0.3",
+  "version": "0.0.7",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -10,6 +10,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@alpha.xone/langchat": "^0.0.7",
     "@expo/vector-icons": "^14.1.0",
     "@langchain/core": "^0.3.58",
     "@langchain/langgraph-sdk": "^0.0.84",

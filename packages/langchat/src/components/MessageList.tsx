@@ -1,16 +1,9 @@
 import { Message } from '@langchain/langgraph-sdk';
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  FlatList,
-  RefreshControl,
-  Text,
-  View,
-} from 'react-native';
-import { useTheme } from '../context/ThemeContext';
+import React from 'react';
+import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { filterRenderableMessages } from '../lib/message-utils';
+import { Theme } from '../theme';
 import { AIMessage } from './messages/AIMessage';
-import { HumanMessage } from './messages/HumanMessage';
-import { Toast } from './ui/Toast';
 
 interface MessageListProps {
   messages: Message[];
@@ -18,6 +11,7 @@ interface MessageListProps {
   onRefresh?: () => void;
   refreshing?: boolean;
   ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
+  theme: Theme; // Add theme prop
 }
 
 export function MessageList({
@@ -26,68 +20,36 @@ export function MessageList({
   onRefresh,
   refreshing = false,
   ListHeaderComponent,
+  theme, // Receive theme prop
 }: MessageListProps) {
-  const { theme } = useTheme();
-  const flatListRef = useRef<FlatList>(null);
-  const [toast, setToast] = useState({ visible: false, message: '' });
-
-  // Filter out messages that shouldn't be rendered
   const renderableMessages = filterRenderableMessages(messages);
 
-  // Extract the complex expression to a separate variable
-  const lastMessageContent = renderableMessages[renderableMessages.length - 1]?.content;
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (renderableMessages.length > 0) {
-      // Use a small delay to ensure the UI has updated
-      const timer = setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [renderableMessages.length, lastMessageContent]);
-
-  const handleCopy = (text: string) => {
-    setToast({ visible: true, message: 'Message copied to clipboard' });
-  };
-
-  const hideToast = () => {
-    setToast({ visible: false, message: '' });
-  };
-
   const renderMessage = ({ item: message, index }: { item: Message; index: number }) => {
-    const key = message.id || `${message.type}-${index}`;
+    const isUser = message.type === 'human';
 
-    switch (message.type) {
-      case 'human':
-        return <HumanMessage key={key} message={message} onCopy={handleCopy} />;
-      case 'ai':
-        return <AIMessage key={key} message={message} onCopy={handleCopy} />;
-      case 'tool':
-        // Tool messages are typically not rendered in the UI
-        return null;
-      default:
-        return (
-          <View key={key} style={{
-            marginVertical: 4,
-            marginHorizontal: 16,
-            padding: 12,
-            backgroundColor: theme.error + '20' || '#FF000020',
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: theme.error + '40' || '#FF000040'
+    return (
+      <View style={{
+        padding: 16,
+        alignItems: isUser ? 'flex-end' : 'flex-start',
+      }}>
+        <View style={{
+          maxWidth: '80%',
+          backgroundColor: isUser ? theme.primary : theme.surface,
+          borderRadius: 16,
+          padding: 12,
+          borderBottomRightRadius: isUser ? 4 : 16,
+          borderBottomLeftRadius: isUser ? 16 : 4,
+        }}>
+          <Text style={{
+            color: isUser ? '#ffffff' : theme.text,
+            fontSize: 16,
+            lineHeight: 20,
           }}>
-            <Text style={{
-              color: theme.error || '#FF0000',
-              fontSize: 12,
-              fontStyle: 'italic'
-            }}>
-              Unknown message type: {message.type}
-            </Text>
-          </View>
-        );
-    }
+            {typeof message.content === 'string' ? message.content : JSON.stringify(message.content)}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   const renderEmpty = () => (
@@ -113,54 +75,42 @@ export function MessageList({
 
     return (
       <View style={{ paddingVertical: 8 }}>
-        <AIMessage isLoading={true} onCopy={handleCopy} />
+        <AIMessage
+          isLoading={true}
+          onCopy={() => {}}
+          message={{ id: 'loading', type: 'ai', content: '' } as Message}
+          theme={theme}
+        />
       </View>
     );
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <FlatList
-        ref={flatListRef}
-        data={renderableMessages}
-        renderItem={renderMessage}
-        keyExtractor={(item, index) => item.id || `${item.type}-${index}`}
-        style={{
-          flex: 1,
-          backgroundColor: theme.background
-        }}
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingVertical: 8,
-          ...(renderableMessages.length === 0 && { justifyContent: 'center' })
-        }}
-        ListHeaderComponent={ListHeaderComponent}
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={renderFooter}
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.primary}
-              colors={[theme.primary]}
-            />
-          ) : undefined
-        }
-        showsVerticalScrollIndicator={false}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={20}
-        windowSize={10}
-      />
-
-      <Toast
-        message={toast.message}
-        visible={toast.visible}
-        onHide={hideToast}
-        duration={2000}
-      />
-    </View>
+    <FlatList
+      data={renderableMessages}
+      renderItem={renderMessage}
+      keyExtractor={(item, index) => item.id || `${item.type}-${index}`}
+      style={{ backgroundColor: theme.background }}
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingVertical: 8,
+        ...(renderableMessages.length === 0 && { justifyContent: 'center' })
+      }}
+      ListHeaderComponent={ListHeaderComponent}
+      ListEmptyComponent={renderEmpty}
+      ListFooterComponent={renderFooter}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        ) : undefined
+      }
+      showsVerticalScrollIndicator={false}
+      inverted={renderableMessages.length > 0}
+    />
   );
 }

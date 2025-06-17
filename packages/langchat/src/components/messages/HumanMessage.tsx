@@ -4,16 +4,16 @@ import * as Clipboard from 'expo-clipboard';
 import React from 'react';
 import { Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import { useTheme } from '../../context/ThemeContext';
 import { getContentString } from '../../lib/message-utils';
+import { Theme } from '../../theme';
 
 interface HumanMessageProps {
   message: Message;
   onCopy?: (text: string) => void;
+  theme: Theme; // Add theme prop
 }
 
-export function HumanMessage({ message, onCopy }: HumanMessageProps) {
-  const { theme } = useTheme();
+export function HumanMessage({ message, onCopy, theme }: HumanMessageProps) {
   const content = getContentString(message?.content);
   const screenWidth = Dimensions.get('window').width;
   const maxMessageWidth = screenWidth * 0.85;

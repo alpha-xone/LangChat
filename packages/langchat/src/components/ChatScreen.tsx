@@ -10,38 +10,56 @@ import {
   View,
 } from 'react-native';
 import { StreamProvider, useStreamContext } from '../context/Stream';
-import { useTheme } from '../context/ThemeContext';
+import { ThemeProvider, useOptionalTheme, useTheme } from '../context/ThemeProvider';
 import { useChatConfig } from '../hooks/useChatConfig';
-import { getMarkdownExample, getRandomMarkdownExample } from '../lib/markdown-examples';
-import { generateMessageId } from '../lib/message-utils';
+import { useDemoMessageHandler } from '../hooks/useDemoMessageHandler';
+import { useRealChatHandler } from '../hooks/useRealChatHandler';
 import { mergeStreamingMessage, processStreamChunk } from '../lib/stream-utils';
+import { Theme, ThemeMode } from '../theme';
 import { ChatInput } from './ChatInput';
 import { MessageList } from './MessageList';
 import { StreamingDemo } from './demo/StreamingDemo';
 
-function ChatInterface() {
-  const { theme } = useTheme();
+interface ChatScreenProps {
+  themeMode?: ThemeMode;
+  theme?: Partial<Theme>;
+  showDemo?: boolean;
+  onThemeChange?: (mode: ThemeMode) => void; // Callback for app-level theme sync
+  config?: {
+    apiUrl?: string;
+    assistantId?: string;
+    apiKey?: string;
+  };
+}
+
+interface ChatInterfaceProps {
+  showDemo: boolean;
+}
+
+function ChatInterface({ showDemo }: ChatInterfaceProps) {
+  const { theme } = useTheme(); // Now uses the package's theme context
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(showDemo);
   const messagesRef = useRef<Message[]>([]);
 
   // Add refs for chunk queuing
   const chunkQueueRef = useRef<any[]>([]);
   const isProcessingChunksRef = useRef(false);
 
-  // Get streaming context - this will be null if not in provider
+  // Get streaming context
   const streamContext = useStreamContext();
 
-  // Keep messages ref in sync
+  // Force live mode if demo is disabled
   useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+    if (!showDemo) {
+      setIsDemoMode(false);
+    }
+  }, [showDemo]);
 
-  // Function to add messages (used by demo and real chat)
+  // Initialize message handlers
   const addMessage = useCallback((message: Message) => {
     setMessages(prev => {
-      // Replace message if it has the same ID (for streaming updates)
       const existingIndex = prev.findIndex(m => m.id === message.id);
       if (existingIndex >= 0) {
         const newMessages = [...prev];
@@ -51,15 +69,21 @@ function ChatInterface() {
       return [...prev, message];
     });
   }, []);
-  // Debounced message update function to prevent too frequent re-renders
+
+  const { handleDemoMessage } = useDemoMessageHandler({ addMessage });
+  const { handleRealMessage } = useRealChatHandler({ addMessage, chunkQueueRef });
+
+  // Keep messages ref in sync
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Debounced message update function
   const debouncedUpdateMessages = useCallback(
     (newMessages: Message[]) => {
-      // Simple debounce implementation inline
       const timeoutId = setTimeout(() => {
         setMessages(newMessages);
       }, 50);
-
-      // Clear previous timeout if function is called again quickly
       return () => clearTimeout(timeoutId);
     },
     [setMessages]
@@ -80,6 +104,7 @@ function ChatInterface() {
       console.error('Error processing streaming chunk:', error);
     }
   }, []);
+
   // Process chunk queue
   const processChunkQueue = useCallback(async () => {
     if (isProcessingChunksRef.current || chunkQueueRef.current.length === 0) {
@@ -93,8 +118,7 @@ function ChatInterface() {
         const chunk = chunkQueueRef.current.shift();
         if (chunk) {
           processStreamingChunk(chunk);
-          // Small delay to prevent UI blocking
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
     } finally {
@@ -108,12 +132,9 @@ function ChatInterface() {
       const streamMessages = streamContext.messages;
 
       if (Array.isArray(streamMessages) && streamMessages.length > 0) {
-        // Check if this is real-time streaming data vs complete messages
         const lastMessage = streamMessages[streamMessages.length - 1];
 
-        // If we have a new message or updated content, process it
         if (lastMessage && lastMessage.content) {
-          // Add to chunk queue for processing
           chunkQueueRef.current.push(lastMessage);
           processChunkQueue();
         }
@@ -121,18 +142,16 @@ function ChatInterface() {
     }
   }, [streamContext?.messages, isDemoMode, processChunkQueue]);
 
-  // Alternative: Direct message updates (simpler approach)
+  // Alternative: Direct message updates
   useEffect(() => {
     if (!isDemoMode && streamContext?.messages) {
       const streamMessages = streamContext.messages;
 
       if (Array.isArray(streamMessages) && streamMessages.length > 0) {
-        // Filter and process valid messages
         const validMessages = streamMessages.filter(msg =>
           msg && typeof msg === 'object' && msg.content
         );
 
-        // Use debounced update to prevent too frequent re-renders
         if (validMessages.length !== messagesRef.current.length ||
             JSON.stringify(validMessages) !== JSON.stringify(messagesRef.current)) {
           debouncedUpdateMessages(validMessages);
@@ -145,120 +164,29 @@ function ChatInterface() {
   useEffect(() => {
     if (isDemoMode) {
       setMessages([]);
-      // Clear chunk queue when switching to demo mode
       chunkQueueRef.current = [];
     }
   }, [isDemoMode]);
 
-  // Real LangGraph message handling
+  // Main message handler
   const handleSendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
 
-    if (isDemoMode) {
-      // Demo mode - simulate response
-      const humanMessage: Message = {
-        id: generateMessageId(),
-        type: 'human',
-        content: text.trim(),
-      };
-      addMessage(humanMessage);
-
-      // Simulate AI response with markdown examples
-      setTimeout(() => {
-        let demoContent = `Demo Echo: ${text.trim()}`;
-
-        // Add markdown examples for demonstration
-        const lowerText = text.toLowerCase();
-        if (lowerText.includes('markdown') || lowerText.includes('example')) {
-          demoContent = getRandomMarkdownExample();
-        } else if (lowerText.includes('table')) {
-          demoContent = getMarkdownExample('table');
-        } else if (lowerText.includes('code')) {
-          demoContent = getMarkdownExample('code');
-        } else if (lowerText.includes('mixed') || lowerText.includes('all')) {
-          demoContent = getMarkdownExample('mixed');
-        } else if (lowerText.includes('basic')) {
-          demoContent = getMarkdownExample('basic');
-        } else {
-          demoContent = `# Demo Response
-
-Your message: **${text.trim()}**
-
-## Try these commands:
-- Type "markdown" or "example" for random markdown demo
-- Type "table" for table examples
-- Type "code" for code block examples
-- Type "mixed" or "all" for comprehensive demo
-- Type "basic" for basic markdown features
-
-### Current Features:
-- ✅ **Bold** and *italic* text
-- ✅ \`Inline code\` formatting
-- ✅ Code blocks with syntax highlighting
-- ✅ Tables and lists
-- ✅ Blockquotes and headers
-
-> Try different keywords to see various markdown examples!`;
-        }
-
-        const aiMessage: Message = {
-          id: generateMessageId(),
-          type: 'ai',
-          content: demoContent,
-        };
-        addMessage(aiMessage);
-      }, 1000);
-      return;
+    if (!showDemo || !isDemoMode) {
+      await handleRealMessage(text);
+    } else {
+      await handleDemoMessage(text);
     }
-
-    // Real LangGraph streaming
-    if (!streamContext) {
-      Alert.alert('Error', 'Streaming not available. Please check configuration.');
-      return;
-    }
-
-    try {
-      console.log('Sending message to LangGraph:', { text });
-      console.log('Stream context loading:', streamContext.isLoading);
-
-      // Add user message immediately
-      const userMessage: Message = {
-        id: generateMessageId(),
-        type: 'human',
-        content: text.trim(),
-      };
-      addMessage(userMessage);
-
-      // Clear chunk queue before new message
-      chunkQueueRef.current = [];
-
-      // Use the submit method to send messages
-      if (streamContext?.submit) {
-        await streamContext.submit({
-          messages: [userMessage]
-        });
-      } else {
-        throw new Error('Submit method not available on stream context');
-      }
-
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      Alert.alert(
-        'Error',
-        'Failed to send message. Please check your connection and try again.\n\nError: ' + (error instanceof Error ? error.message : String(error))
-      );
-    }
-  }, [isDemoMode, streamContext, addMessage]);
+  }, [showDemo, isDemoMode, handleDemoMessage, handleRealMessage]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      // Clear chunk queue on refresh
       chunkQueueRef.current = [];
 
-      if (!isDemoMode && streamContext?.createNewThread) {
+      if ((!showDemo || !isDemoMode) && streamContext?.createNewThread) {
         await streamContext.createNewThread();
-      } else if (!isDemoMode && streamContext?.clearMessages) {
+      } else if ((!showDemo || !isDemoMode) && streamContext?.clearMessages) {
         streamContext.clearMessages();
       } else {
         setMessages([]);
@@ -269,31 +197,31 @@ Your message: **${text.trim()}**
     } finally {
       setIsRefreshing(false);
     }
-  }, [isDemoMode, streamContext]);
+  }, [showDemo, isDemoMode, streamContext]);
 
   const handleStopStreaming = useCallback(async () => {
     try {
-      // Clear chunk queue when stopping
       chunkQueueRef.current = [];
       isProcessingChunksRef.current = false;
 
-      if (!isDemoMode && streamContext?.stop) {
+      if ((!showDemo || !isDemoMode) && streamContext?.stop) {
         streamContext.stop();
       }
     } catch (error) {
       console.error('Failed to stop stream:', error);
       Alert.alert('Error', 'Failed to stop stream');
     }
-  }, [isDemoMode, streamContext]);
+  }, [showDemo, isDemoMode, streamContext]);
 
   const toggleMode = useCallback(() => {
-    setIsDemoMode(prev => !prev);
-    setMessages([]);
-    // Clear chunk queue when switching modes
-    chunkQueueRef.current = [];
-  }, []);
+    if (showDemo) {
+      setIsDemoMode(prev => !prev);
+      setMessages([]);
+      chunkQueueRef.current = [];
+    }
+  }, [showDemo]);
 
-  const isStreaming = isDemoMode ? false : (streamContext?.isLoading ?? false);
+  const isStreaming = (showDemo && isDemoMode) ? false : (streamContext?.isLoading ?? false);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
@@ -310,7 +238,7 @@ Your message: **${text.trim()}**
           paddingHorizontal: 16,
           paddingVertical: 12,
           borderBottomWidth: 1,
-          borderBottomColor: theme.border || theme.text + '20',
+          borderBottomColor: theme.border,
           backgroundColor: theme.background
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -321,25 +249,27 @@ Your message: **${text.trim()}**
             }}>
               Chat
             </Text>
-            <TouchableOpacity
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 12,
-                minWidth: 50,
-                alignItems: 'center',
-                backgroundColor: isDemoMode ? theme.primary + '20' : theme.success + '20'
-              }}
-              onPress={toggleMode}
-            >
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: isDemoMode ? theme.primary : theme.success || theme.primary
-              }}>
-                {isDemoMode ? 'Demo' : 'Live'}
-              </Text>
-            </TouchableOpacity>
+            {showDemo && (
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  minWidth: 50,
+                  alignItems: 'center',
+                  backgroundColor: isDemoMode ? theme.primary + '20' : theme.success + '20'
+                }}
+                onPress={toggleMode}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: isDemoMode ? theme.primary : theme.success
+                }}>
+                  {isDemoMode ? 'Demo' : 'Live'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -348,14 +278,16 @@ Your message: **${text.trim()}**
           isLoading={isStreaming}
           onRefresh={handleRefresh}
           refreshing={isRefreshing}
+          theme={theme} // Add theme prop
           ListHeaderComponent={
-            messages.length === 0 ? (
+            (showDemo && messages.length === 0) ? (
               <StreamingDemo
                 onAddMessage={addMessage}
                 isStreaming={isStreaming}
                 setIsStreaming={() => {}}
                 showModeInfo={true}
                 currentMode={isDemoMode ? 'demo' : 'live'}
+                theme={theme} // Add theme prop
               />
             ) : null
           }
@@ -366,10 +298,11 @@ Your message: **${text.trim()}**
           onStopStreaming={handleStopStreaming}
           disabled={false}
           isStreaming={isStreaming}
+          theme={theme} // Add theme prop
           placeholder={
             isStreaming
               ? "AI is responding..."
-              : isDemoMode
+              : (showDemo && isDemoMode)
                 ? "Type a message (Demo mode)..."
                 : "Type a message..."
           }
@@ -379,9 +312,15 @@ Your message: **${text.trim()}**
   );
 }
 
-export default function ChatScreen() {
-  const { theme } = useTheme();
+export default function ChatScreen({
+  themeMode = 'system',
+  theme: themeOverrides,
+  showDemo = false,
+  onThemeChange,
+  config: externalConfig
+}: ChatScreenProps) {
   const { config, isConfigured } = useChatConfig();
+  const existingThemeContext = useOptionalTheme();
 
   // Get environment variables as fallback
   const envConfig = {
@@ -390,32 +329,23 @@ export default function ChatScreen() {
     apiKey: process.env.EXPO_PUBLIC_LANGGRAPH_API_KEY || '',
   };
 
-  // Check if we have configuration from either stored config or environment
+  // Check configuration
+  const hasExternalConfig = !!(externalConfig?.apiUrl && externalConfig?.assistantId);
   const hasEnvConfig = !!(envConfig.apiUrl && envConfig.assistantId);
-  const canChat = isConfigured || hasEnvConfig;
+  const canChat = hasExternalConfig || isConfigured || hasEnvConfig;
 
-  // Convert config to StreamConfig format, with env fallback
+  // Convert config to StreamConfig format
   const streamConfig = {
-    apiUrl: config.apiUrl || envConfig.apiUrl,
-    assistantId: config.assistantId || envConfig.assistantId,
-    apiKey: config.apiKey || envConfig.apiKey,
+    apiUrl: externalConfig?.apiUrl || config.apiUrl || envConfig.apiUrl,
+    assistantId: externalConfig?.assistantId || config.assistantId || envConfig.assistantId,
+    apiKey: externalConfig?.apiKey || config.apiKey || envConfig.apiKey,
   };
-
-  console.log('ChatScreen: Configuration check', {
-    isConfigured,
-    hasEnvConfig,
-    canChat,
-    streamConfig: {
-      ...streamConfig,
-      apiKey: streamConfig.apiKey ? '***hidden***' : undefined
-    }
-  });
 
   if (!canChat) {
     return (
       <SafeAreaView style={{
         flex: 1,
-        backgroundColor: theme.background,
+        backgroundColor: themeOverrides?.background || '#ffffff',
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 16
@@ -425,45 +355,50 @@ export default function ChatScreen() {
           fontWeight: 'bold',
           textAlign: 'center',
           marginBottom: 16,
-          color: theme.text
+          color: themeOverrides?.text || '#000000'
         }}>
           Configuration Required
         </Text>
         <Text style={{
           fontSize: 16,
-          color: theme.text + 'CC',
+          color: themeOverrides?.text || '#000000',
+          opacity: 0.7,
           textAlign: 'center',
           marginBottom: 24
         }}>
-          Please configure your API settings in the Profile tab to start chatting.
+          Please configure your API settings to start chatting.
         </Text>
         <Text style={{
           fontSize: 14,
-          color: theme.text + '80',
+          color: themeOverrides?.text || '#000000',
+          opacity: 0.5,
           textAlign: 'center'
         }}>
-          Go to Profile → Configure API URL and Assistant ID
+          Pass config props or set environment variables
         </Text>
-        {!hasEnvConfig && (
-          <Text style={{
-            fontSize: 12,
-            color: theme.text + '60',
-            textAlign: 'center',
-            marginTop: 16,
-            fontStyle: 'italic'
-          }}>
-            Or add EXPO_PUBLIC_LANGGRAPH_API_URL and EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID to your .env file
-          </Text>
-        )}
       </SafeAreaView>
     );
   }
 
+  // If already in a theme context, use it directly
+  if (existingThemeContext) {
+    return (
+      <StreamProvider config={streamConfig}>
+        <ChatInterface showDemo={showDemo} />
+      </StreamProvider>
+    );
+  }
+
+  // Create new theme context if none exists
   return (
-    <StreamProvider config={streamConfig}>
-      <View style={{ flex: 1, backgroundColor: theme.background }}>
-        <ChatInterface />
-      </View>
-    </StreamProvider>
+    <ThemeProvider
+      mode={themeMode}
+      theme={themeOverrides}
+      onModeChange={onThemeChange}
+    >
+      <StreamProvider config={streamConfig}>
+        <ChatInterface showDemo={showDemo} />
+      </StreamProvider>
+    </ThemeProvider>
   );
 }
