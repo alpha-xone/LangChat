@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "langchat-app",
-    "slug": "langchat-app",
-    "version": "0.0.2",
+    "name": "langchat-npm",
+    "slug": "langchat-npm",
+    "version": "0.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "langchatapp",

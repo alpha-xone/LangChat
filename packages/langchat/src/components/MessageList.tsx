@@ -4,6 +4,7 @@ import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { filterRenderableMessages } from '../lib/message-utils';
 import { Theme } from '../theme';
 import { AIMessage } from './messages/AIMessage';
+import { HumanMessage } from './messages/HumanMessage';
 
 interface MessageListProps {
   messages: Message[];
@@ -11,7 +12,7 @@ interface MessageListProps {
   onRefresh?: () => void;
   refreshing?: boolean;
   ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
-  theme: Theme; // Add theme prop
+  theme: Theme;
 }
 
 export function MessageList({
@@ -20,36 +21,36 @@ export function MessageList({
   onRefresh,
   refreshing = false,
   ListHeaderComponent,
-  theme, // Receive theme prop
+  theme,
 }: MessageListProps) {
   const renderableMessages = filterRenderableMessages(messages);
 
-  const renderMessage = ({ item: message, index }: { item: Message; index: number }) => {
+  const renderMessage = ({ item: message }: { item: Message }) => {
     const isUser = message.type === 'human';
 
-    return (
-      <View style={{
-        padding: 16,
-        alignItems: isUser ? 'flex-end' : 'flex-start',
-      }}>
-        <View style={{
-          maxWidth: '80%',
-          backgroundColor: isUser ? theme.primary : theme.surface,
-          borderRadius: 16,
-          padding: 12,
-          borderBottomRightRadius: isUser ? 4 : 16,
-          borderBottomLeftRadius: isUser ? 16 : 4,
-        }}>
-          <Text style={{
-            color: isUser ? '#ffffff' : theme.text,
-            fontSize: 16,
-            lineHeight: 20,
-          }}>
-            {typeof message.content === 'string' ? message.content : JSON.stringify(message.content)}
-          </Text>
-        </View>
-      </View>
-    );
+    if (isUser) {
+      return (
+        <HumanMessage
+          message={message}
+          theme={theme}
+          onCopy={(text) => {
+            // Handle copy functionality if needed
+            console.log('Copied:', text);
+          }}
+        />
+      );
+    } else {
+      return (
+        <AIMessage
+          message={message}
+          theme={theme}
+          onCopy={(text) => {
+            // Handle copy functionality if needed
+            console.log('Copied:', text);
+          }}
+        />
+      );
+    }
   };
 
   const renderEmpty = () => (
@@ -110,7 +111,6 @@ export function MessageList({
         ) : undefined
       }
       showsVerticalScrollIndicator={false}
-      inverted={renderableMessages.length > 0}
     />
   );
 }
