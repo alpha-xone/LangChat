@@ -245,7 +245,7 @@ function ChatInterface({ showDemo }: ChatInterfaceProps) {
             <Text style={{
               fontSize: 20,
               fontWeight: 'bold',
-              color: theme.text
+              color: theme.primary
             }}>
               Chat
             </Text>
