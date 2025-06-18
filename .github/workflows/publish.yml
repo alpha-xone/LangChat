@@ -24,11 +24,11 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies (root)
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Install package dependencies
         working-directory: ./packages/langchat
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Run linting
         working-directory: ./packages/langchat
@@ -62,11 +62,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies (root)
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Install package dependencies
         working-directory: ./packages/langchat
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build library
         working-directory: ./packages/langchat
