@@ -7,7 +7,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "eslint . --ext .ts,.tsx --fix",
+    "lint:check": "eslint . --ext .ts,.tsx",
+    "test": "jest",
+    "build": "tsc",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@alpha.xone/langchat": "^0.0.7",
@@ -48,11 +52,13 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
     "@types/react": "~19.0.10",
-    "eslint": "^9.25.0",
-    "eslint-config-expo": "~9.2.0",
+    "eslint": "^8.0.0",
+    "eslint-config-expo": "^7.0.0",
     "rimraf": "^6.0.1",
-    "typescript": "~5.8.3"
+    "typescript": "^5.0.0"
   },
   "private": true
 }
