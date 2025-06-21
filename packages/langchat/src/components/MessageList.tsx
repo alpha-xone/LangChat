@@ -13,6 +13,8 @@ interface MessageListProps {
   refreshing?: boolean;
   ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
   theme: Theme;
+  showAIBubble?: boolean;
+  showHumanBubble?: boolean;
 }
 
 export function MessageList({
@@ -22,31 +24,29 @@ export function MessageList({
   refreshing = false,
   ListHeaderComponent,
   theme,
+  showAIBubble = false,
+  showHumanBubble = true,
 }: MessageListProps) {
   const renderableMessages = filterRenderableMessages(messages);
 
   const renderMessage = ({ item: message }: { item: Message }) => {
-    const isUser = message.type === 'human';
-
-    if (isUser) {
-      return (
-        <HumanMessage
+    const isUser = message.type === 'human';    if (isUser) {
+      return (        <HumanMessage
           message={message}
           theme={theme}
+          showBubble={showHumanBubble}
           onCopy={(text) => {
-            // Handle copy functionality if needed
-            console.log('Copied:', text);
+            // Copy handled internally in component
           }}
         />
-      );
-    } else {
+      );    } else {
       return (
         <AIMessage
           message={message}
           theme={theme}
+          showBubble={showAIBubble}
           onCopy={(text) => {
-            // Handle copy functionality if needed
-            console.log('Copied:', text);
+            // Copy handled internally in component
           }}
         />
       );
@@ -73,7 +73,6 @@ export function MessageList({
 
   const renderFooter = () => {
     if (!isLoading) return null;
-
     return (
       <View style={{ paddingVertical: 8 }}>
         <AIMessage
@@ -81,6 +80,7 @@ export function MessageList({
           onCopy={() => {}}
           message={{ id: 'loading', type: 'ai', content: '' } as Message}
           theme={theme}
+          showBubble={showAIBubble}
         />
       </View>
     );

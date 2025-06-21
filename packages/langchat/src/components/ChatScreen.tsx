@@ -1,13 +1,13 @@
 import { Message } from '@langchain/langgraph-sdk';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { StreamProvider, useStreamContext } from '../context/Stream';
 import { ThemeProvider, useOptionalTheme, useTheme } from '../context/ThemeProvider';
@@ -24,6 +24,7 @@ interface ChatScreenProps {
   themeMode?: ThemeMode;
   theme?: Partial<Theme>;
   showDemo?: boolean;
+  showAIBubble?: boolean;
   onThemeChange?: (mode: ThemeMode) => void; // Callback for app-level theme sync
   config?: {
     apiUrl?: string;
@@ -34,9 +35,10 @@ interface ChatScreenProps {
 
 interface ChatInterfaceProps {
   showDemo: boolean;
+  showAIBubble: boolean;
 }
 
-function ChatInterface({ showDemo }: ChatInterfaceProps) {
+function ChatInterface({ showDemo, showAIBubble }: ChatInterfaceProps) {
   const { theme } = useTheme(); // Now uses the package's theme context
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -271,14 +273,13 @@ function ChatInterface({ showDemo }: ChatInterfaceProps) {
               </TouchableOpacity>
             )}
           </View>
-        </View>
-
-        <MessageList
+        </View>        <MessageList
           messages={messages}
           isLoading={isStreaming}
           onRefresh={handleRefresh}
           refreshing={isRefreshing}
           theme={theme} // Add theme prop
+          showAIBubble={showAIBubble}
           ListHeaderComponent={
             (showDemo && messages.length === 0) ? (
               <StreamingDemo
@@ -316,6 +317,7 @@ export default function ChatScreen({
   themeMode = 'system',
   theme: themeOverrides,
   showDemo = false,
+  showAIBubble = false,
   onThemeChange,
   config: externalConfig
 }: ChatScreenProps) {
@@ -379,12 +381,11 @@ export default function ChatScreen({
       </SafeAreaView>
     );
   }
-
   // If already in a theme context, use it directly
   if (existingThemeContext) {
     return (
       <StreamProvider config={streamConfig}>
-        <ChatInterface showDemo={showDemo} />
+        <ChatInterface showDemo={showDemo} showAIBubble={showAIBubble} />
       </StreamProvider>
     );
   }
@@ -397,7 +398,7 @@ export default function ChatScreen({
       onModeChange={onThemeChange}
     >
       <StreamProvider config={streamConfig}>
-        <ChatInterface showDemo={showDemo} />
+        <ChatInterface showDemo={showDemo} showAIBubble={showAIBubble} />
       </StreamProvider>
     </ThemeProvider>
   );

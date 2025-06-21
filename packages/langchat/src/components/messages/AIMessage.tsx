@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
 import * as Clipboard from 'expo-clipboard';
-import React from 'react';
-import { Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Animated, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { getContentString } from '../../lib/message-utils';
 import { Theme } from '../../theme';
@@ -12,10 +12,13 @@ interface AIMessageProps {
   isLoading?: boolean;
   onCopy?: (text: string) => void;
   theme: Theme;
+  showBubble?: boolean;
 }
 
-export function AIMessage({ message, isLoading = false, onCopy, theme }: AIMessageProps) {
+export function AIMessage({ message, isLoading = false, onCopy, theme, showBubble = false }: AIMessageProps) {
   const displayContent = getContentString(message?.content);
+  const [isCopied, setIsCopied] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleCopy = async () => {
     if (!displayContent) return;
@@ -23,24 +26,47 @@ export function AIMessage({ message, isLoading = false, onCopy, theme }: AIMessa
     try {
       await Clipboard.setStringAsync(displayContent);
       onCopy?.(displayContent);
+
+      // Show copied state with animation
+      setIsCopied(true);
+
+      // Scale animation for feedback
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.2,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        })
+      ]).start();
+
+      // Reset back to copy icon after 2 seconds
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
     } catch (error) {
       console.error('Failed to copy message:', error);
-    }
-  };
-
-  if (isLoading) {
+    }  };  if (isLoading) {
     return (
       <View style={{
-        padding: 16,
+        padding: 4,
         alignItems: 'flex-start',
       }}>
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: theme.surface,
-          borderRadius: 16,
-          padding: 12,
-          borderBottomLeftRadius: 4,
+          backgroundColor: showBubble ? theme.surface : 'transparent',
+          borderRadius: showBubble ? 18 : 0,
+          padding: showBubble ? 12 : 0,
+          elevation: showBubble ? 2 : 0,
+          shadowColor: showBubble ? theme.surface : 'transparent',
+          shadowOffset: showBubble ? { width: 0, height: 2 } : { width: 0, height: 0 },
+          shadowOpacity: showBubble ? 0.2 : 0,
+          shadowRadius: showBubble ? 4 : 0,
         }}>
           <Ionicons
             name="ellipsis-horizontal"
@@ -87,21 +113,23 @@ export function AIMessage({ message, isLoading = false, onCopy, theme }: AIMessa
         }}>
           {node.content}
         </Text>
-      </ScrollView>
-    );
-  };
-
-  return (
+      </ScrollView>    );
+  };  return (
     <View style={{
-      padding: 16,
+      padding: 4,
       alignItems: 'flex-start',
     }}>
       <View style={{
-        maxWidth: '85%',
-        backgroundColor: theme.surface,
-        borderRadius: 16,
-        padding: 12,
-        borderBottomLeftRadius: 4,
+        maxWidth: showBubble ? '85%' : '95%',
+        backgroundColor: showBubble ? theme.surface : 'transparent',
+        borderRadius: showBubble ? 18 : 0,
+        paddingHorizontal: showBubble ? 15 : 8,
+        paddingVertical: showBubble ? 5 : 0,
+        elevation: showBubble ? 2 : 0,
+        shadowColor: showBubble ? theme.surface : 'transparent',
+        shadowOffset: showBubble ? { width: 0, height: 2 } : { width: 0, height: 0 },
+        shadowOpacity: showBubble ? 0.2 : 0,
+        shadowRadius: showBubble ? 4 : 0,
       }}>
         <Markdown
           style={{
@@ -114,7 +142,8 @@ export function AIMessage({ message, isLoading = false, onCopy, theme }: AIMessa
               color: theme.text,
               fontSize: 16,
               lineHeight: 24,
-              marginBottom: 8,
+              marginTop: showBubble ? 3 : 0,
+              marginBottom: showBubble ? 5 : 0,
             },
             strong: {
               fontWeight: 'bold',
@@ -168,25 +197,25 @@ export function AIMessage({ message, isLoading = false, onCopy, theme }: AIMessa
         >
           {displayContent}
         </Markdown>
-
-        {onCopy && (
-          <TouchableOpacity
-            style={{
-              marginTop: 8,
-              alignSelf: 'flex-end',
-            }}
-            onPress={handleCopy}
-          >
-            <Text style={{
-              color: theme.primary,
-              fontSize: 12,
-              fontWeight: '600',
-            }}>
-              Copy
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
+      {onCopy && (
+        <TouchableOpacity
+          style={{
+            marginTop: 5,
+            marginLeft: showBubble ? 10 : 8,
+            alignSelf: 'flex-start',
+          }}
+          onPress={handleCopy}
+        >
+          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+            <Ionicons
+              name={isCopied ? "checkmark" : "copy-outline"}
+              size={16}
+              color={theme.text + '60'}
+            />
+          </Animated.View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
