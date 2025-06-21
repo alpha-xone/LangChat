@@ -12,9 +12,10 @@ interface ToolMessageProps {
   onCopy?: (text: string) => void;
   theme: Theme;
   showBubble?: boolean;
+  compact?: boolean;
 }
 
-export function ToolMessage({ message, onCopy, theme, showBubble = false }: ToolMessageProps) {
+export function ToolMessage({ message, onCopy, theme, showBubble = false, compact = false }: ToolMessageProps) {
   const displayContent = getContentString(message?.content);
   const [isCopied, setIsCopied] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -53,35 +54,120 @@ export function ToolMessage({ message, onCopy, theme, showBubble = false }: Tool
   };
 
   if (!message) return null;
-
   // Custom renderer for code blocks to make them horizontally scrollable
   const renderCodeBlock = (node: any, children: any, parent: any, styles: any) => {
     return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={true}
-        style={{
-          backgroundColor: theme.background,
-          borderRadius: 8,
-          marginVertical: 8,
-          borderWidth: 1,
-          borderColor: theme.border,
-        }}
-        contentContainerStyle={{
-          padding: 12,
-        }}
-      >
-        <Text style={{
-          fontSize: 14,
-          fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-          color: theme.text,
-          lineHeight: 20,
+      <View style={{
+        marginVertical: 6,
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 4,
         }}>
-          {node.content}
-        </Text>
-      </ScrollView>
+          <View style={{
+            backgroundColor: theme.text + '20',
+            borderRadius: 3,
+            paddingHorizontal: 4,
+            paddingVertical: 1,
+          }}>
+            <Text style={{
+              color: theme.text + '80',
+              fontSize: 9,
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}>
+              Output
+            </Text>
+          </View>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          style={{
+            backgroundColor: theme.background,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: theme.border + '60',
+            maxHeight: 150,
+          }}
+          contentContainerStyle={{
+            padding: 8,
+          }}
+        >
+          <Text style={{
+            fontSize: 11,
+            fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+            color: theme.text + 'E0',
+            lineHeight: 16,
+          }}>
+            {node.content}
+          </Text>
+        </ScrollView>
+      </View>
     );
+  };  // Extract tool call ID from message if available
+  const toolCallId = (message as any)?.tool_call_id;
+
+  // Try to find associated tool call information in previous messages
+  // This would typically come from the AI message that made the tool call
+  const findToolName = () => {
+    // In a real implementation, you might search through previous messages
+    // For now, we'll try to extract from common patterns in the content
+    if (displayContent.toLowerCase().includes('weather')) return 'get_weather';
+    if (displayContent.toLowerCase().includes('search')) return 'search';
+    if (displayContent.toLowerCase().includes('calculator')) return 'calculate';
+    return null;
   };
+
+  const toolName = findToolName();
+
+  // Compact version for minimal display
+  if (compact) {
+    return (
+      <View style={{
+        padding: 2,
+        alignItems: 'flex-start',
+        marginVertical: 2,
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: theme.surface + '80',
+          borderRadius: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderLeftWidth: 2,
+          borderLeftColor: theme.primary + '60',
+        }}>
+          <Ionicons
+            name="construct"
+            size={10}
+            color={theme.primary + 'A0'}
+          />
+          <Text style={{
+            color: theme.text + '80',
+            fontSize: 10,
+            marginLeft: 4,
+            fontWeight: '500',
+          }}>
+            Tool: {toolName || 'Response'}
+          </Text>
+          {displayContent && displayContent.length > 50 && (
+            <Text style={{
+              color: theme.text + '60',
+              fontSize: 9,
+              marginLeft: 4,
+              fontStyle: 'italic',
+            }}>
+              • {displayContent.slice(0, 30)}...
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={{
@@ -89,125 +175,216 @@ export function ToolMessage({ message, onCopy, theme, showBubble = false }: Tool
       alignItems: 'flex-start',
     }}>
       <View style={{
-        maxWidth: showBubble ? '85%' : '95%',
-        backgroundColor: showBubble ? theme.surface : 'transparent',
-        borderRadius: showBubble ? 18 : 0,
-        paddingHorizontal: showBubble ? 12 : 0,
-        paddingVertical: showBubble ? 0 : 0,
-        elevation: showBubble ? 1 : 0,
-        shadowColor: showBubble ? theme.surface : 'transparent',
-        shadowOffset: showBubble ? { width: 0, height: 1 } : { width: 0, height: 0 },
-        shadowOpacity: showBubble ? 0.1 : 0,
-        shadowRadius: showBubble ? 2 : 0,
+        maxWidth: showBubble ? '80%' : '90%',
+        backgroundColor: showBubble ? theme.background : 'transparent',
+        borderRadius: showBubble ? 12 : 0,
+        paddingHorizontal: showBubble ? 10 : 0,
+        paddingVertical: showBubble ? 8 : 0,
         borderWidth: showBubble ? 1 : 0,
-        borderColor: showBubble ? theme.border + '40' : 'transparent',
+        borderColor: showBubble ? theme.border + '60' : 'transparent',
+        borderLeftWidth: showBubble ? 3 : 0,
+        borderLeftColor: showBubble ? theme.primary + '60' : 'transparent',
       }}>
-        {/* Tool message indicator */}
+        {/* Enhanced tool message header */}
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
-          marginBottom: displayContent ? 6 : 0,
-          opacity: 0.7,
+          justifyContent: 'space-between',
+          marginBottom: displayContent ? 8 : 0,
+          paddingBottom: displayContent ? 6 : 0,
+          borderBottomWidth: displayContent ? 1 : 0,
+          borderBottomColor: theme.border + '40',
         }}>
-          <Ionicons
-            name="build-outline"
-            size={14}
-            color={theme.text + '80'}
-          />
-          <Text style={{
-            color: theme.text + '80',
-            fontSize: 12,
-            marginLeft: 4,
-            fontStyle: 'italic',
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            flex: 1,
           }}>
-            Tool Response
-          </Text>
-        </View>
+            <View style={{
+              backgroundColor: theme.primary + '20',
+              borderRadius: 12,
+              width: 24,
+              height: 24,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 8,
+            }}>
+              <Ionicons
+                name="construct"
+                size={12}
+                color={theme.primary}
+              />
+            </View>            <View style={{ flex: 1 }}>
+              <Text style={{
+                color: theme.primary,
+                fontSize: 11,
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+              }}>
+                {toolName ? `Tool: ${toolName.replace('_', ' ')}` : 'Tool Response'}
+              </Text>
+              {toolCallId && (
+                <Text style={{
+                  color: theme.text + '60',
+                  fontSize: 10,
+                  marginTop: 1,
+                  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                }}>
+                  ID: {toolCallId.slice(-8)}
+                </Text>
+              )}
+            </View>
+          </View>
 
+          {/* Success indicator */}
+          <View style={{
+            backgroundColor: theme.success + '20',
+            borderRadius: 8,
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+          }}>
+            <Text style={{
+              color: theme.success,
+              fontSize: 9,
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}>
+              ✓ Complete
+            </Text>
+          </View>
+        </View>
         {displayContent && (
-          <Markdown
-            style={{
-              body: {
-                color: theme.text + 'E0',
-                fontSize: 14,
-                margin: 0,
-              },
-              paragraph: {
-                color: theme.text + 'E0',
-                fontSize: 14,
-                lineHeight: 20,
-                marginBottom: 6,
-              },
-              strong: {
-                fontWeight: 'bold',
-                color: theme.text + 'E0',
-              },
-              em: {
-                fontStyle: 'italic',
-                color: theme.text + 'E0',
-              },
-              code_inline: {
-                backgroundColor: theme.background,
-                color: theme.primary,
-                borderRadius: 4,
-                paddingHorizontal: 4,
-                paddingVertical: 2,
-                fontSize: 12,
-                fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-              },
-              code_block: {
-                backgroundColor: theme.background,
-                color: theme.text,
-                borderRadius: 8,
-                padding: 8,
-                fontSize: 12,
-                fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-              },
-              blockquote: {
-                backgroundColor: theme.surface,
-                borderLeftWidth: 3,
-                borderLeftColor: theme.primary + '60',
-                paddingLeft: 10,
-                paddingVertical: 6,
-                marginVertical: 6,
-                fontStyle: 'italic',
-              },
-              list_item: {
-                fontSize: 14,
-                lineHeight: 20,
-                color: theme.text + 'E0',
-                marginBottom: 3,
-              },
-              link: {
-                color: theme.primary,
-                textDecorationLine: 'underline',
-              },
-            }}
-            rules={{
-              code_block: renderCodeBlock,
-              fence: renderCodeBlock,
-            }}
-          >
-            {displayContent}
-          </Markdown>
-        )}
-      </View>
+          <View style={{
+            backgroundColor: showBubble ? theme.surface + '40' : 'transparent',
+            borderRadius: 8,
+            padding: showBubble ? 8 : 0,
+          }}>
+            <Markdown
+              style={{
+                body: {
+                  color: theme.text + 'D0',
+                  fontSize: 13,
+                  margin: 0,
+                  lineHeight: 18,
+                },
+                paragraph: {
+                  color: theme.text + 'D0',
+                  fontSize: 13,
+                  lineHeight: 18,
+                  marginBottom: 4,
+                },
+                strong: {
+                  fontWeight: '600',
+                  color: theme.text + 'E0',
+                },
+                em: {
+                  fontStyle: 'italic',
+                  color: theme.text + 'C0',
+                },
+                code_inline: {
+                  backgroundColor: theme.primary + '15',
+                  color: theme.primary,
+                  borderRadius: 3,
+                  paddingHorizontal: 4,
+                  paddingVertical: 1,
+                  fontSize: 11,
+                  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                  fontWeight: '500',
+                },
+                code_block: {
+                  backgroundColor: theme.background,
+                  color: theme.text + 'E0',
+                  borderRadius: 6,
+                  padding: 8,
+                  fontSize: 11,
+                  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                  borderWidth: 1,
+                  borderColor: theme.border + '60',
+                },
+                blockquote: {
+                  backgroundColor: theme.surface + '60',
+                  borderLeftWidth: 3,
+                  borderLeftColor: theme.primary + '80',
+                  paddingLeft: 8,
+                  paddingVertical: 4,
+                  marginVertical: 4,
+                  fontStyle: 'italic',
+                  borderRadius: 4,
+                },
+                list_item: {
+                  fontSize: 13,
+                  lineHeight: 18,
+                  color: theme.text + 'D0',
+                  marginBottom: 2,
+                },
+                link: {
+                  color: theme.primary,
+                  textDecorationLine: 'underline',
+                  fontSize: 13,
+                },
+                heading1: {
+                  fontSize: 16,
+                  fontWeight: 'bold',
+                  color: theme.text + 'E0',
+                  marginBottom: 6,
+                },
+                heading2: {
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: theme.text + 'E0',
+                  marginBottom: 4,
+                },
+                heading3: {
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: theme.text + 'D0',
+                  marginBottom: 3,
+                },
+              }}
+              rules={{
+                code_block: renderCodeBlock,
+                fence: renderCodeBlock,
+              }}
+            >
+              {displayContent}
+            </Markdown>
+          </View>
+        )}      </View>
       {onCopy && displayContent && (
         <TouchableOpacity
           style={{
-            marginTop: 4,
+            marginTop: 6,
+            marginLeft: 8,
             alignSelf: 'flex-start',
+            backgroundColor: theme.surface,
+            borderRadius: 12,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderWidth: 1,
+            borderColor: theme.border + '60',
           }}
           onPress={handleCopy}
         >
-          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          <Animated.View style={{
+            transform: [{ scale: scaleAnim }],
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}>
             <Ionicons
               name={isCopied ? "checkmark" : "copy-outline"}
-              size={14}
-              color={theme.text + '60'}
+              size={12}
+              color={isCopied ? theme.success : theme.text + '80'}
             />
+            <Text style={{
+              fontSize: 10,
+              color: isCopied ? theme.success : theme.text + '80',
+              marginLeft: 4,
+              fontWeight: '500',
+            }}>
+              {isCopied ? 'Copied' : 'Copy'}
+            </Text>
           </Animated.View>
         </TouchableOpacity>
       )}

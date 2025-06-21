@@ -17,6 +17,7 @@ interface MessageListProps {
   showAIBubble?: boolean;
   showHumanBubble?: boolean;
   showToolMessages?: boolean;
+  compactToolMessages?: boolean;
 }
 
 export function MessageList({
@@ -29,6 +30,7 @@ export function MessageList({
   showAIBubble = false,
   showHumanBubble = true,
   showToolMessages = true,
+  compactToolMessages = false,
 }: MessageListProps) {
   const renderableMessages = filterRenderableMessages(messages, showToolMessages);
   const renderMessage = ({ item: message }: { item: Message }) => {
@@ -51,6 +53,7 @@ export function MessageList({
           message={message}
           theme={theme}
           showBubble={showAIBubble}
+          compact={compactToolMessages}
           onCopy={(text) => {
             // Copy handled internally in component
           }}
