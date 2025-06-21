@@ -14,10 +14,20 @@ export const DO_NOT_RENDER_ID_PREFIX = "do-not-render-";
 /**
  * Filter out messages that should not be rendered in the UI
  */
-export function filterRenderableMessages(messages: Message[]): Message[] {
-  return messages.filter(
-    (message) => !message.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)
-  );
+export function filterRenderableMessages(messages: Message[], showToolMessages: boolean = true): Message[] {
+  return messages.filter((message) => {
+    // Always filter out messages with do-not-render prefix
+    if (message.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)) {
+      return false;
+    }
+
+    // Filter out tool messages if showToolMessages is false
+    if (!showToolMessages && message.type === 'tool') {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 /**

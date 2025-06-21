@@ -5,6 +5,7 @@ import { filterRenderableMessages } from '../lib/message-utils';
 import { Theme } from '../theme';
 import { AIMessage } from './messages/AIMessage';
 import { HumanMessage } from './messages/HumanMessage';
+import { ToolMessage } from './messages/ToolMessage';
 
 interface MessageListProps {
   messages: Message[];
@@ -15,6 +16,7 @@ interface MessageListProps {
   theme: Theme;
   showAIBubble?: boolean;
   showHumanBubble?: boolean;
+  showToolMessages?: boolean;
 }
 
 export function MessageList({
@@ -26,11 +28,14 @@ export function MessageList({
   theme,
   showAIBubble = false,
   showHumanBubble = true,
+  showToolMessages = true,
 }: MessageListProps) {
-  const renderableMessages = filterRenderableMessages(messages);
-
+  const renderableMessages = filterRenderableMessages(messages, showToolMessages);
   const renderMessage = ({ item: message }: { item: Message }) => {
-    const isUser = message.type === 'human';    if (isUser) {
+    const isUser = message.type === 'human';
+    const isTool = message.type === 'tool';
+
+    if (isUser) {
       return (        <HumanMessage
           message={message}
           theme={theme}
@@ -39,7 +44,19 @@ export function MessageList({
             // Copy handled internally in component
           }}
         />
-      );    } else {
+      );    } else if (isTool) {
+      // Tool messages are rendered with a special ToolMessage component
+      return (
+        <ToolMessage
+          message={message}
+          theme={theme}
+          showBubble={showAIBubble}
+          onCopy={(text) => {
+            // Copy handled internally in component
+          }}
+        />
+      );
+    } else {
       return (
         <AIMessage
           message={message}
