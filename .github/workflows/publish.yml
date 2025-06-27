@@ -1,0 +1,79 @@
+name: Publish to NPM
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  release:
+    types: [published]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (root)
+        run: npm install --legacy-peer-deps
+
+      - name: Install package dependencies
+        working-directory: ./packages/langchat
+        run: npm install --legacy-peer-deps
+
+      - name: Run linting
+        working-directory: ./packages/langchat
+        run: npm run lint --if-present
+
+      - name: Run tests
+        working-directory: ./packages/langchat
+        run: npm run test --if-present
+
+      - name: Build library
+        working-directory: ./packages/langchat
+        run: npm run build
+
+      - name: Check build output
+        working-directory: ./packages/langchat
+        run: ls -la dist/ || echo "No dist directory found"
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies (root)
+        run: npm install --legacy-peer-deps
+
+      - name: Install package dependencies
+        working-directory: ./packages/langchat
+        run: npm install --legacy-peer-deps
+
+      - name: Build library
+        working-directory: ./packages/langchat
+        run: npm run build
+
+      - name: Publish to NPM
+        working-directory: ./packages/langchat
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
