@@ -11,8 +11,8 @@ const path = require('path');
 console.log('🚀 LangChat Environment Setup');
 console.log('=====================================\n');
 
-const envPath = path.join(__dirname, '.env');
-const envExamplePath = path.join(__dirname, '.env.example');
+const envPath = path.join(process.cwd(), '.env');
+const envExamplePath = path.join(process.cwd(), '.env.example');
 
 // Check if .env already exists
 if (fs.existsSync(envPath)) {
@@ -36,10 +36,27 @@ if (fs.existsSync(envPath)) {
   process.exit(0);
 }
 
-// Copy from .env.example if it doesn't exist
+// Create .env.example if it doesn't exist
 if (!fs.existsSync(envExamplePath)) {
-  console.log('❌ .env.example file not found');
-  process.exit(1);
+  console.log('📄 Creating .env.example file...');
+
+  const exampleContent = `# LangChat Configuration
+# Copy this file to .env and fill in your actual values
+
+# Supabase Configuration
+# Get these from https://supabase.com/dashboard → Settings → API
+EXPO_PUBLIC_SUPABASE_URL=your-supabase-project-url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# LangGraph Configuration (Optional)
+# If you're using a custom LangGraph server
+EXPO_PUBLIC_LANGGRAPH_API_URL=http://localhost:2024
+EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID=agent
+EXPO_PUBLIC_LANGGRAPH_API_KEY=your-api-key
+`;
+
+  fs.writeFileSync(envExamplePath, exampleContent);
+  console.log('✅ .env.example file created!');
 }
 
 console.log('📄 Creating .env file from .env.example...');
@@ -59,6 +76,6 @@ console.log('3. For LangGraph:');
 console.log('   - Set up your LangGraph server');
 console.log('   - Update the API URL and credentials');
 console.log('\n⚠️  Important: Never commit the .env file to version control!');
-console.log('   The .env file is already in .gitignore');
+console.log('   The .env file should be in .gitignore');
 
 console.log('\n🎯 After setting up your .env file, restart your development server.');

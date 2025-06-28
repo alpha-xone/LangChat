@@ -1,6 +1,6 @@
-import { useAppTheme } from '@/contexts/AppThemeContext';
 import React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface ConfigurationErrorProps {
   onRetry?: () => void;

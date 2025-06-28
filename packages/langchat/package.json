@@ -7,6 +7,8 @@
   "files": [
     "dist",
     "src",
+    "scripts",
+    "templates",
     "README.md",
     "LICENSE"
   ],
@@ -18,7 +20,13 @@
     "build": "tsc -p tsconfig.build.json",
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "echo \"No tests specified\" && exit 0",
+    "setup-env": "node scripts/setup-env.js",
+    "setup-oauth": "node scripts/setup-oauth.js"
+  },
+  "bin": {
+    "langchat-setup": "scripts/setup-env.js",
+    "langchat-oauth": "scripts/setup-oauth.js"
   },
   "keywords": [
     "react-native",

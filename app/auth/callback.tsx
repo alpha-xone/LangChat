@@ -3,15 +3,16 @@
  * Handles OAuth redirects from Supabase authentication in React Native
  */
 
+import { createDefaultSupabaseClient } from '@/packages/langchat/src';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../lib/supabase';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 export default function AuthCallback() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [status, setStatus] = useState('Processing authentication...');
+  const supabase = createDefaultSupabaseClient();
 
   useEffect(() => {
     handleAuthCallback();

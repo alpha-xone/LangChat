@@ -1,9 +1,8 @@
-import { useAppTheme } from '@/contexts/AppThemeContext';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import ConfigurationError from './ConfigurationError';
-import SignInScreen from './SignInScreen';
+import { useAuth, useAppTheme } from '../../contexts';
+import ConfigurationError from '../config/ConfigurationError';
+import { SignInScreen } from './SignInScreen';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

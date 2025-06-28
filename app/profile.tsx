@@ -1,5 +1,4 @@
-import ProtectedRoute from '@/components/ProtectedRoute';
-import UserProfileScreen from '@/components/UserProfileScreen';
+import { ProtectedRoute, UserProfileScreen } from '@/packages/langchat/src';
 import { router } from 'expo-router';
 import React from 'react';
 

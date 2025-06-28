@@ -1,5 +1,3 @@
-import { useAppTheme } from '@/contexts/AppThemeContext';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
 import LucideIcon from '@react-native-vector-icons/lucide';
 import React, { useState } from 'react';
 import {
@@ -14,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useAuth, useAppTheme } from '../../contexts';
 
 type AuthMode = 'signin' | 'signup' | 'forgot-password';
 

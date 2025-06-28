@@ -1,5 +1,4 @@
-import { useAppTheme } from "@/contexts/AppThemeContext";
-import ChatScreen from "@/packages/langchat/src/components/ChatScreen";
+import { ChatScreen, useAppTheme } from "@/packages/langchat/src";
 
 export default function StandaloneChatPage() {
   const { currentTheme, mode, setMode } = useAppTheme();

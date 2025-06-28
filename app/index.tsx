@@ -1,6 +1,4 @@
-import ConfigurationError from '@/components/ConfigurationError';
-import { useAppTheme } from '@/contexts/AppThemeContext';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { ConfigurationError, useAppTheme, useAuth } from '@/packages/langchat/src';
 import LucideIcon from '@react-native-vector-icons/lucide';
 import { Link } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';

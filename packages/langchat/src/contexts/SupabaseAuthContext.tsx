@@ -1,7 +1,7 @@
-import { signInWithOAuth, type OAuthProvider } from '@/lib/oauth-utils';
-import { Session, User } from '@supabase/supabase-js';
+import { Session, SupabaseClient, User } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { supabase, Tables } from '../lib/supabase';
+import { signInWithOAuth, type OAuthProvider } from '../lib/supabase/oauth-utils';
+import type { Database, Tables } from '../lib/supabase/types';
 
 export interface AuthUser extends User {
   profile?: Tables<'profiles'>;
@@ -25,7 +25,12 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface AuthProviderProps {
+  children: ReactNode;
+  supabaseClient: SupabaseClient<Database>;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children, supabaseClient }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +51,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     console.log('✅ Supabase configuration found');
   }, []);
+
   // Load initial session and set up auth state listener
   useEffect(() => {
     let mounted = true;
@@ -54,8 +60,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         console.log('🔄 Starting session restoration...');
 
-        // Set a timeout for session loading to prevent infinite loading
-        const sessionPromise = supabase.auth.getSession();
+        const sessionPromise = supabaseClient.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Session load timeout')), 5000)
         );
@@ -84,20 +89,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
-    // Add a fallback timeout to ensure loading never gets stuck forever
     const fallbackTimeout = setTimeout(() => {
       if (mounted) {
         console.warn('⚠️ Session loading taking too long, setting loading to false');
         setIsLoading(false);
       }
-    }, 8000); // Reduced from 15 seconds to 8 seconds
+    }, 8000);
 
     getInitialSession().finally(() => {
       clearTimeout(fallbackTimeout);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
 
@@ -120,14 +124,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearTimeout(fallbackTimeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabaseClient]);
 
   const loadUserProfile = async (authUser: User) => {
     try {
       console.log('👤 Loading profile for user:', authUser.email);
 
-      // Set a timeout for the profile loading to prevent infinite loading
-      const profilePromise = supabase
+      const profilePromise = supabaseClient
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
@@ -189,7 +192,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
         password,
       });
@@ -215,7 +218,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await supabaseClient.auth.signUp({
         email: email.toLowerCase().trim(),
         password,
         options: {
@@ -254,7 +257,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setIsLoading(true);
 
-      const result = await signInWithOAuth(provider);
+      const result = await signInWithOAuth(supabaseClient, provider);
 
       if (!result.success) {
         return { success: false, error: result.error };
@@ -272,7 +275,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const createProfile = async (authUser: User, name: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('profiles')
         .insert({
           id: authUser.id,
@@ -291,7 +294,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signOut = async () => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabaseClient.auth.signOut();
 
       if (error) {
         console.error('Sign out error:', error);
@@ -305,7 +308,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const forgotPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(
         email.toLowerCase().trim(),
         {
           redirectTo: `${window.location.origin}/reset-password`,
@@ -325,7 +328,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const resetPassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await supabaseClient.auth.updateUser({
         password: newPassword
       });
 
@@ -348,7 +351,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setIsLoading(true);
 
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('profiles')
         .update({
           ...updates,
@@ -374,7 +377,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refreshSession = async () => {
     try {
-      const { data, error } = await supabase.auth.refreshSession();
+      const { data, error } = await supabaseClient.auth.refreshSession();
 
       if (error) {
         console.error('Error refreshing session:', error);

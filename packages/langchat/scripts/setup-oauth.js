@@ -56,7 +56,7 @@ async function main() {
   console.log('2. OAuth apps configured with each provider');
   console.log('3. Redirect URLs configured in provider consoles\n');
 
-  const envPath = path.join(__dirname, '.env');
+  const envPath = path.join(process.cwd(), '.env');
   const answers = {};
 
   // Ask about each OAuth provider
@@ -90,7 +90,7 @@ async function main() {
   } else {
     console.log('\n📝 Creating new .env file...');
     // Copy from .env.example if it exists
-    const envExamplePath = path.join(__dirname, '.env.example');
+    const envExamplePath = path.join(process.cwd(), '.env.example');
     if (fs.existsSync(envExamplePath)) {
       envContent = fs.readFileSync(envExamplePath, 'utf8');
     }
@@ -158,7 +158,7 @@ async function main() {
   console.log('   - Test complete authentication flow');
   console.log('');
   console.log('📖 For detailed setup instructions, see:');
-  console.log('   - AUTHENTICATION.md (OAuth section)');
+  console.log('   - LangChat documentation');
   console.log('   - Supabase Auth documentation');
   console.log('   - Provider-specific setup guides');
 

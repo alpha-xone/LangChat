@@ -3,10 +3,11 @@
  * Provides OAuth sign-in functions for Google, Apple, and X (Twitter)
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { getOAuthErrorMessage, getOAuthRedirectUri, OAUTH_CONFIG } from './oauth-config';
-import { supabase } from './supabase';
+import type { Database } from './types';
 
 export type OAuthProvider = 'google' | 'apple' | 'twitter';
 export type OAuthResult = { success: boolean; error?: string };
@@ -17,7 +18,7 @@ WebBrowser.maybeCompleteAuthSession();
 /**
  * Sign in with Google OAuth
  */
-export const signInWithGoogle = async (): Promise<OAuthResult> => {
+export const signInWithGoogle = async (supabase: SupabaseClient<Database>): Promise<OAuthResult> => {
   try {
     const redirectUri = getOAuthRedirectUri();
 
@@ -70,7 +71,7 @@ export const signInWithGoogle = async (): Promise<OAuthResult> => {
 /**
  * Sign in with Apple OAuth (iOS only)
  */
-export const signInWithApple = async (): Promise<OAuthResult> => {
+export const signInWithApple = async (supabase: SupabaseClient<Database>): Promise<OAuthResult> => {
   try {
     // Check if Apple Authentication is available
     const isAvailable = await AppleAuthentication.isAvailableAsync();
@@ -124,12 +125,8 @@ export const signInWithApple = async (): Promise<OAuthResult> => {
 /**
  * Sign in with X (Twitter) OAuth
  */
-export const signInWithTwitter = async (): Promise<OAuthResult> => {
+export const signInWithTwitter = async (supabase: SupabaseClient<Database>): Promise<OAuthResult> => {
   try {
-    // For Twitter OAuth, we don't specify redirectTo - let Supabase handle it
-    // Supabase will use: https://your-project.supabase.co/auth/v1/callback
-    // Then redirect back to the app using the configured redirect URL in Supabase settings
-
     console.log('Starting Twitter OAuth flow...');
 
     // For Twitter OAuth, use the same redirect URI as other providers
@@ -149,25 +146,7 @@ export const signInWithTwitter = async (): Promise<OAuthResult> => {
       if (error.message.includes('Provider') && error.message.includes('is not enabled')) {
         return {
           success: false,
-          error: 'X (Twitter) OAuth is not configured in Supabase. Please configure it using the Management API:\n\n' +
-                 'curl -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \\\n' +
-                 '  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \\\n' +
-                 '  -H "Content-Type: application/json" \\\n' +
-                 '  -d \'{\n' +
-                 '    "external_twitter_enabled": true,\n' +
-                 '    "external_twitter_client_id": "your-twitter-api-key",\n' +
-                 '    "external_twitter_secret": "your-twitter-api-secret-key"\n' +
-                 '  }\''
-        };
-      }
-
-      if (error.message.includes('invalid') || error.message.includes('path')) {
-        return {
-          success: false,
-          error: 'X OAuth configuration error. Please verify:\n' +
-                 '1. Twitter app callback URL: https://your-project.supabase.co/auth/v1/callback\n' +
-                 '2. OAuth 1.0a is enabled in Twitter Developer Portal\n' +
-                 '3. Twitter provider is configured in Supabase via Management API'
+          error: 'X (Twitter) OAuth is not configured in Supabase. Please configure it using the Management API.'
         };
       }
 
@@ -180,8 +159,6 @@ export const signInWithTwitter = async (): Promise<OAuthResult> => {
     }
 
     console.log('Starting X OAuth flow with URL:', authUrl);
-
-    console.log('App redirect URI for callback:', appRedirectUri);
 
     // Start OAuth flow using WebBrowser
     const result = await WebBrowser.openAuthSessionAsync(authUrl, appRedirectUri);
@@ -205,14 +182,14 @@ export const signInWithTwitter = async (): Promise<OAuthResult> => {
 /**
  * Generic OAuth sign-in function
  */
-export const signInWithOAuth = async (provider: OAuthProvider): Promise<OAuthResult> => {
+export const signInWithOAuth = async (supabase: SupabaseClient<Database>, provider: OAuthProvider): Promise<OAuthResult> => {
   switch (provider) {
     case 'google':
-      return signInWithGoogle();
+      return signInWithGoogle(supabase);
     case 'apple':
-      return signInWithApple();
+      return signInWithApple(supabase);
     case 'twitter':
-      return signInWithTwitter();
+      return signInWithTwitter(supabase);
     default:
       return { success: false, error: `Unsupported OAuth provider: ${provider}` };
   }

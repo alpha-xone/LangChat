@@ -1,6 +1,6 @@
-import { getThemeByMode, Theme, ThemeMode } from '@/packages/langchat/src/theme';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Appearance } from 'react-native';
+import { getThemeByMode, Theme, ThemeMode } from '../theme';
 
 interface AppThemeContextType {
   mode: ThemeMode;

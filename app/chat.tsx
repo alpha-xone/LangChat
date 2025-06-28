@@ -1,11 +1,15 @@
-import ProtectedRoute from "@/components/ProtectedRoute";
-import { useAppTheme } from "@/contexts/AppThemeContext";
-import { ChatProvider } from "@/contexts/ChatContext";
-import { useAuth } from "@/contexts/SupabaseAuthContext";
-import { supabase } from "@/lib/supabase";
-import ChatScreen from "@/packages/langchat/src/components/ChatScreen";
+import {
+  ChatProvider,
+  ChatScreen,
+  createDefaultSupabaseClient,
+  ProtectedRoute,
+  useAppTheme,
+  useAuth
+} from '@/packages/langchat/src';
 import { router } from 'expo-router';
 import React from 'react';
+
+const supabase = createDefaultSupabaseClient();
 
 export default function ChatPage() {
   const { currentTheme, mode, setMode } = useAppTheme();

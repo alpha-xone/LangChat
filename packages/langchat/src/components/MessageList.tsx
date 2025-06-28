@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
 import LucideIcon from '@react-native-vector-icons/lucide';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { filterRenderableMessages } from '../lib/message-utils';
 import { Theme } from '../theme';
@@ -46,8 +46,30 @@ export function MessageList({
 }: MessageListProps) {
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
 
   const renderableMessages = filterRenderableMessages(messages, showToolMessages);
+
+  // Auto-scroll to bottom when messages change or loading state changes
+  const scrollToBottom = useCallback(() => {
+    if (flatListRef.current && renderableMessages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [renderableMessages.length]);
+
+  // Auto-scroll when new messages are added
+  useEffect(() => {
+    scrollToBottom();
+  }, [renderableMessages.length, scrollToBottom]);
+
+  // Auto-scroll when loading state changes (e.g., when AI starts/stops responding)
+  useEffect(() => {
+    if (isLoading) {
+      scrollToBottom();
+    }
+  }, [isLoading, scrollToBottom]);
 
   const toggleMessageSelection = useCallback((messageId: string) => {
     setSelectedMessages(prev => {
@@ -302,6 +324,7 @@ export function MessageList({
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {renderSelectionHeader()}
       <FlatList
+        ref={flatListRef}
         data={renderableMessages}
         renderItem={renderMessage}
         keyExtractor={(item, index) => item.id || `${item.type}-${index}`}

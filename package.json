@@ -12,9 +12,8 @@
     "test": "jest",
     "build": "tsc",
     "prepare": "npm run build",
-    "demo:auth": "node demo-auth.js",
-    "setup": "node setup-env.js",
-    "setup:oauth": "node setup-oauth.js"
+    "setup": "langchat-setup-env",
+    "setup:oauth": "langchat-setup-oauth"
   },
   "dependencies": {
     "@alpha.xone/langchat": "^0.0.7",

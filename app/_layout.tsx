@@ -1,11 +1,12 @@
-import { AppThemeProvider } from '@/contexts/AppThemeContext';
-import { AuthProvider } from '@/contexts/SupabaseAuthContext';
+import { AppThemeProvider, AuthProvider, createDefaultSupabaseClient } from '@/packages/langchat/src';
 import { Stack } from "expo-router";
+
+const supabase = createDefaultSupabaseClient();
 
 export default function RootLayout() {
   return (
     <AppThemeProvider>
-      <AuthProvider>
+      <AuthProvider supabaseClient={supabase}>
         <Stack>
         <Stack.Screen
           name="index"

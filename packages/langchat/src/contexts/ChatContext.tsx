@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { Database, Tables } from '../lib/supabase';
+import type { Database, Tables } from '../lib/supabase/types';
 import { useAuth } from './SupabaseAuthContext';
 
 export interface ChatMessage extends Tables<'chat_messages'> {}

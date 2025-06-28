@@ -1,6 +1,4 @@
-import { useAppTheme } from '@/contexts/AppThemeContext';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { OAUTH_CONFIG, isOAuthProviderAvailable } from '@/lib/oauth-config';
+import { OAUTH_CONFIG, isOAuthProviderAvailable, useAppTheme, useAuth } from '@/packages/langchat/src';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
