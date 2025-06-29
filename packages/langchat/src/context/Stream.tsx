@@ -1,14 +1,15 @@
 import { type Message, Client } from "@langchain/langgraph-sdk";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import React, {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useRef,
-    useState
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
 } from "react";
+import { useAuth } from '../contexts/SupabaseAuthContext';
 
 export type StateType = {
   messages: Message[];
@@ -84,25 +85,36 @@ const StreamSession = ({
   autoCreateThread?: boolean;
   onError?: (error: string) => void;
 }) => {
+  const { session } = useAuth();
   const [threadId, setThreadId] = useState<string | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [isCreatingThread, setIsCreatingThread] = useState(false); // Track thread creation state
   const hasInitiatedCreation = useRef(false); // Track if we've ever tried to create a thread
 
-  // Initialize client
+  // Initialize client with auth headers if available
   useEffect(() => {
     try {
       console.log('Initializing LangGraph client with:', { apiUrl, hasApiKey: !!apiKey, assistantId });
-      const newClient = new Client({
+
+      const clientConfig: any = {
         apiUrl,
         ...(apiKey && { apiKey }),
-      });
+      };
+
+      // Add Supabase auth token as a custom header if available
+      if (session?.access_token) {
+        clientConfig.defaultHeaders = {
+          'Authorization': `Bearer ${session.access_token}`,
+        };
+      }
+
+      const newClient = new Client(clientConfig);
       setClient(newClient);
     } catch (error) {
       console.error('Failed to initialize LangGraph client:', error);
       onError?.('Failed to initialize LangGraph client');
     }
-  }, [apiUrl, apiKey, assistantId, onError]);
+  }, [apiUrl, apiKey, assistantId, session?.access_token, onError]); // Add session.access_token to dependencies
 
   // Create thread when client is ready (but only if auto-creation is enabled)
   useEffect(() => {
@@ -132,6 +144,10 @@ const StreamSession = ({
     apiKey: apiKey ?? undefined,
     assistantId,
     threadId: threadId ?? null,
+    // Add auth token to the stream configuration
+    defaultHeaders: session?.access_token ? {
+      'Authorization': `Bearer ${session.access_token}`,
+    } : undefined,
     onThreadId: (id) => {
       // Only accept thread ID from stream if we don't already have one
       if (id && !threadId && !isCreatingThread) {
@@ -142,6 +158,14 @@ const StreamSession = ({
         // If stream provides a different thread ID, log it but don't change
         console.log('Thread ID from stream differs from current:', 'stream=', id, 'current=', threadId);
       }
+    },
+    // Add logging for when messages are submitted
+    onCreated: (data) => {
+      console.log('🔐 Submitting to LangGraph with auth token:', {
+        hasToken: !!session?.access_token,
+        tokenPrefix: session?.access_token ? session.access_token.substring(0, 10) + '...' : 'none',
+        threadId: threadId,
+      });
     },
   });
 
