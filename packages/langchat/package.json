@@ -1,6 +1,6 @@
 {
   "name": "@alpha.xone/langchat",
-  "version": "0.0.9",
+  "version": "0.0.15",
   "description": "Chat component with LangGraph integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
