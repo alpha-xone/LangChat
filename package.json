@@ -16,7 +16,7 @@
     "setup:oauth": "langchat-setup-oauth"
   },
   "dependencies": {
-    "@alpha.xone/langchat": "^0.0.15",
+    "@alpha.xone/langchat": "^0.0.16",
     "@expo/vector-icons": "^14.1.0",
     "@langchain/core": "^0.3.58",
     "@langchain/langgraph-sdk": "^0.0.84",
