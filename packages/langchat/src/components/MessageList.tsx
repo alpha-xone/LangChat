@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Message } from '@langchain/langgraph-sdk';
 import LucideIcon from '@react-native-vector-icons/lucide';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, FlatList, Keyboard, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { filterRenderableMessages } from '../lib/message-utils';
 import { Theme } from '../theme';
 import { AIMessage } from './messages/AIMessage';
@@ -70,6 +70,48 @@ export function MessageList({
       scrollToBottom();
     }
   }, [isLoading, scrollToBottom]);
+
+  // Auto-scroll when keyboard shows up
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      // Add a small delay to ensure the keyboard is fully shown
+      setTimeout(() => {
+        scrollToBottom();
+      }, 10);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      // Handle keyboard hide to prevent layout issues
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, [scrollToBottom]);
+
+  // Handle app state changes to fix layout issues when switching apps
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        // Force keyboard to dismiss and reset layout when app becomes active
+        Keyboard.dismiss();
+
+        // Small delay to ensure keyboard is fully dismissed before scrolling
+        setTimeout(() => {
+          if (flatListRef.current && renderableMessages.length > 0) {
+            flatListRef.current.scrollToEnd({ animated: false });
+          }
+        }, 100);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [renderableMessages.length]);
 
   const toggleMessageSelection = useCallback((messageId: string) => {
     setSelectedMessages(prev => {
