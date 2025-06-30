@@ -54,16 +54,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     try {
       setIsLoading(true);
 
-      // Check if session is still valid
-      if (session && new Date(session.expires_at! * 1000) < new Date()) {
-        console.warn('Session expired, refreshing...');
-        const { error: refreshError } = await supabaseClient.auth.refreshSession();
-        if (refreshError) {
-          console.error('Failed to refresh session:', refreshError);
-          return;
-        }
-      }
-
       const { data, error } = await supabaseClient
         .from('chat_threads')
         .select('*')
@@ -72,23 +62,18 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
 
       if (error) {
         console.error('Error loading threads:', error);
-
-        // Check if it's an auth error
-        if (error.code === 'PGRST301' || error.message.includes('JWT')) {
-          console.error('Authentication error - token may be expired');
-          // Optionally trigger re-authentication
-        }
         return;
       }
 
       console.log('Loaded threads:', data?.length || 0);
+      console.log('Thread data:', JSON.stringify(data, null, 2));
       setThreads(data || []);
     } catch (error) {
       console.error('Error in loadThreads:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [user, supabaseClient, session]);
+  }, [user, supabaseClient]);
 
   // Load threads when user changes
   useEffect(() => {
@@ -311,6 +296,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
   }, [user, supabaseClient]);
 
+  // LangGraph is only used for AI message communication
   const invokeLangGraph = useCallback(async (message: string, threadId: string) => {
     if (!user || !session) return;
 
@@ -374,6 +360,24 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       }
     } catch (error) {
       console.error('Error in invokeLangGraph:', error);
+
+      // Add fallback error message
+      const errorMessage = {
+        user_id: user.id,
+        thread_id: threadId,
+        content: 'Sorry, I encountered a connection error. Please try again.',
+        role: 'assistant' as const,
+      };
+
+      const { data: savedError } = await supabaseClient
+        .from('chat_messages')
+        .insert(errorMessage)
+        .select()
+        .single();
+
+      if (savedError) {
+        setMessages(prev => [...prev, savedError]);
+      }
     } finally {
       setIsStreaming(false);
     }
