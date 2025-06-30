@@ -48,6 +48,48 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
+  const loadThreads = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setIsLoading(true);
+
+      // Check if session is still valid
+      if (session && new Date(session.expires_at! * 1000) < new Date()) {
+        console.warn('Session expired, refreshing...');
+        const { error: refreshError } = await supabaseClient.auth.refreshSession();
+        if (refreshError) {
+          console.error('Failed to refresh session:', refreshError);
+          return;
+        }
+      }
+
+      const { data, error } = await supabaseClient
+        .from('chat_threads')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading threads:', error);
+
+        // Check if it's an auth error
+        if (error.code === 'PGRST301' || error.message.includes('JWT')) {
+          console.error('Authentication error - token may be expired');
+          // Optionally trigger re-authentication
+        }
+        return;
+      }
+
+      console.log('Loaded threads:', data?.length || 0);
+      setThreads(data || []);
+    } catch (error) {
+      console.error('Error in loadThreads:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, supabaseClient, session]);
+
   // Load threads when user changes
   useEffect(() => {
     if (user) {
@@ -57,37 +99,15 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       setCurrentThread(null);
       setMessages([]);
     }
-  }, [user]);
-
-  const loadThreads = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabaseClient
-        .from('chat_threads')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading threads:', error);
-        return;
-      }
-
-      setThreads(data || []);
-    } catch (error) {
-      console.error('Error in loadThreads:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, supabaseClient]);
+  }, [user, loadThreads]);
 
   const createThread = useCallback(async (title = 'New Chat'): Promise<ChatThread | null> => {
     if (!user) return null;
 
     try {
       setIsLoading(true);
+
+      // Create thread in Supabase first
       const { data, error } = await supabaseClient
         .from('chat_threads')
         .insert({
@@ -102,6 +122,23 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
         return null;
       }
 
+      // Initialize LangGraph thread state if needed
+      // This ensures communication consistency with LangGraph
+      try {
+        await supabaseClient.functions.invoke('initialize-thread', {
+          body: {
+            threadId: data.id,
+            userId: user.id,
+          },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+      } catch (langGraphError) {
+        console.warn('LangGraph thread initialization failed:', langGraphError);
+        // Continue anyway - thread is created in Supabase
+      }
+
       setThreads(prev => [data, ...prev]);
       setCurrentThread(data);
       setMessages([]);
@@ -113,7 +150,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [user, supabaseClient]);
+  }, [user, supabaseClient, session]);
 
   const selectThread = useCallback(async (threadId: string) => {
     const thread = threads.find(t => t.id === threadId);
