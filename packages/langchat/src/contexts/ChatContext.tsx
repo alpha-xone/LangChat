@@ -64,9 +64,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
         console.error('Error loading threads:', error);
         return;
       }
-
-      console.log('Loaded threads:', data?.length || 0);
-      console.log('Thread data:', JSON.stringify(data, null, 2));
       setThreads(data || []);
     } catch (error) {
       console.error('Error in loadThreads:', error);
@@ -151,33 +148,43 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     try {
       setIsLoading(true);
 
-      // Delete messages first (due to foreign key constraints)
-      await supabaseClient
+      // First delete all messages in the thread
+      const { error: messagesError } = await supabaseClient
         .from('chat_messages')
         .delete()
         .eq('thread_id', threadId)
         .eq('user_id', user.id);
 
-      // Delete thread
-      const { error } = await supabaseClient
+      if (messagesError) {
+        console.error('Error deleting thread messages:', messagesError);
+        // Continue with thread deletion even if message deletion fails
+      }
+
+      // Then delete the thread itself
+      const { error: threadError } = await supabaseClient
         .from('chat_threads')
         .delete()
         .eq('id', threadId)
         .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error deleting thread:', error);
-        return;
+      if (threadError) {
+        console.error('Error deleting thread:', threadError);
+        throw new Error('Failed to delete thread');
       }
 
-      setThreads(prev => prev.filter(t => t.id !== threadId));
+      // Update local state
+      setThreads(prev => prev.filter(thread => thread.id !== threadId));
 
+      // Clear current thread if it was deleted
       if (currentThread?.id === threadId) {
         setCurrentThread(null);
         setMessages([]);
       }
+
+      console.log('Thread and its messages deleted from Supabase:', threadId);
     } catch (error) {
       console.error('Error in deleteThread:', error);
+      throw error; // Re-throw to let the UI handle the error
     } finally {
       setIsLoading(false);
     }
@@ -187,29 +194,41 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     if (!user) return;
 
     try {
+      setIsLoading(true);
+
+      // Update the thread title in Supabase
       const { error } = await supabaseClient
         .from('chat_threads')
         .update({
-          title: newTitle,
-          updated_at: new Date().toISOString()
+          title: newTitle.trim(),
+          updated_at: new Date().toISOString() // Update the timestamp
         })
         .eq('id', threadId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id); // Ensure user can only update their own threads
 
       if (error) {
-        console.error('Error renaming thread:', error);
-        return;
+        console.error('Error updating thread title:', error);
+        throw new Error('Failed to update thread title');
       }
 
-      setThreads(prev =>
-        prev.map(t => t.id === threadId ? { ...t, title: newTitle } : t)
-      );
+      // Update local state
+      setThreads(prev => prev.map(thread =>
+        thread.id === threadId
+          ? { ...thread, title: newTitle.trim(), updated_at: new Date().toISOString() }
+          : thread
+      ));
 
+      // Update current thread if it's the one being renamed
       if (currentThread?.id === threadId) {
-        setCurrentThread(prev => prev ? { ...prev, title: newTitle } : null);
+        setCurrentThread(prev => prev ? { ...prev, title: newTitle.trim() } : null);
       }
+
+      console.log('Thread renamed successfully:', threadId, newTitle);
     } catch (error) {
       console.error('Error in renameThread:', error);
+      throw error; // Re-throw to let the UI handle the error
+    } finally {
+      setIsLoading(false);
     }
   }, [user, supabaseClient, currentThread]);
 
