@@ -61,6 +61,9 @@ buck-out/
 android/app/libs
 android/keystores/debug.keystore
 
+# Environment
+.env
+
 # Yarn
 .yarn/*
 !.yarn/patches
