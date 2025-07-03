@@ -33,7 +33,7 @@ export interface Database {
           user_id: string;
           thread_id: string;
           content: string;
-          role: 'user' | 'assistant' | 'system';
+          role: 'human' | 'ai' | 'system' | 'tool' | 'assistant';
           metadata?: Record<string, any>;
           created_at: string;
         };
@@ -42,7 +42,7 @@ export interface Database {
           user_id: string;
           thread_id: string;
           content: string;
-          role: 'user' | 'assistant' | 'system';
+          role: 'human' | 'ai' | 'system' | 'tool' | 'assistant';
           metadata?: Record<string, any>;
           created_at?: string;
         };
@@ -51,7 +51,7 @@ export interface Database {
           user_id?: string;
           thread_id?: string;
           content?: string;
-          role?: 'user' | 'assistant' | 'system';
+          role?: 'human' | 'ai' | 'system' | 'tool' | 'assistant';
           metadata?: Record<string, any>;
         };
       };

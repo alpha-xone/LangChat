@@ -13,6 +13,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StreamProvider, useStreamContext } from '../context/Stream';
 import { ThemeProvider, useOptionalTheme, useTheme } from '../context/ThemeProvider';
+import { useChat } from '../contexts/ChatContext';
 import { useChatConfig } from '../hooks/useChatConfig';
 import { useDemoMessageHandler } from '../hooks/useDemoMessageHandler';
 import { useRealChatHandler } from '../hooks/useRealChatHandler';
@@ -74,10 +75,53 @@ function ChatInterface({
   onProfilePress
 }: ChatInterfaceProps) {
   const { theme } = useTheme();
-  const [messages, setMessages] = useState<Message[]>([]);
+
+  // Use ChatContext for message management when not in demo mode
+  const {
+    messages: chatContextMessages,
+    loadMessages,
+    currentThread,
+    selectThread,
+    deleteThread,
+    renameThread,
+    createThread,
+    sendMessage
+  } = useChat();
+
+  // Keep local state for both demo and live messages
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [demoMessages, setDemoMessages] = useState<Message[]>([]);
   const [isDemoMode, setIsDemoMode] = useState(showDemo);
   const [isThreadsPanelVisible, setIsThreadsPanelVisible] = useState(false);
   const messagesRef = useRef<Message[]>([]);
+
+  // Use appropriate messages based on mode
+  const messages: Message[] = isDemoMode ? demoMessages :
+    (currentThread ? chatContextMessages.map(msg => {
+      // Ensure proper type mapping for message display
+      let messageType: 'human' | 'ai' | 'tool' | 'remove';
+
+      // Handle both database roles and potential Message type roles
+      const role = msg.role as string;
+
+      if (role === 'user' || role === 'human') {
+        messageType = 'human';
+      } else if (role === 'assistant' || role === 'ai') {
+        messageType = 'ai';
+      } else if (role === 'system') {
+        messageType = 'ai'; // Show system messages as AI messages
+      } else {
+        messageType = 'ai'; // Default to AI for unknown roles
+      }
+
+      return {
+        id: msg.id,
+        content: msg.content,
+        type: messageType,
+        created_at: msg.created_at,
+        metadata: msg.metadata || {},
+      } as Message;
+    }) : localMessages);
 
   // Add refs for chunk queuing
   const chunkQueueRef = useRef<any[]>([]);
@@ -95,16 +139,28 @@ function ChatInterface({
 
   // Initialize message handlers
   const addMessage = useCallback((message: Message) => {
-    setMessages(prev => {
-      const existingIndex = prev.findIndex(m => m.id === message.id);
-      if (existingIndex >= 0) {
-        const newMessages = [...prev];
-        newMessages[existingIndex] = message;
-        return newMessages;
-      }
-      return [...prev, message];
-    });
-  }, []);
+    if (isDemoMode) {
+      setDemoMessages(prev => {
+        const existingIndex = prev.findIndex(m => m.id === message.id);
+        if (existingIndex >= 0) {
+          const newMessages = [...prev];
+          newMessages[existingIndex] = message;
+          return newMessages;
+        }
+        return [...prev, message];
+      });
+    } else {
+      setLocalMessages(prev => {
+        const existingIndex = prev.findIndex(m => m.id === message.id);
+        if (existingIndex >= 0) {
+          const newMessages = [...prev];
+          newMessages[existingIndex] = message;
+          return newMessages;
+        }
+        return [...prev, message];
+      });
+    }
+  }, [isDemoMode]);
 
   const { handleDemoMessage } = useDemoMessageHandler({ addMessage });
   const { handleRealMessage } = useRealChatHandler({ addMessage, chunkQueueRef });
@@ -114,24 +170,15 @@ function ChatInterface({
     messagesRef.current = messages;
   }, [messages]);
 
-  // Debounced message update function
-  const debouncedUpdateMessages = useCallback(
-    (newMessages: Message[]) => {
-      const timeoutId = setTimeout(() => {
-        setMessages(newMessages);
-      }, 50);
-      return () => clearTimeout(timeoutId);
-    },
-    [setMessages]
-  );
-
-  // Process streaming chunks from LangGraph
+  // Process streaming chunks from LangGraph (for demo mode only)
   const processStreamingChunk = useCallback((chunkData: any) => {
+    if (!isDemoMode) return; // Only use for demo mode
+
     try {
       const { messageChunk, metadata } = processStreamChunk(chunkData);
 
       if (messageChunk) {
-        setMessages(prev => {
+        setDemoMessages(prev => {
           const updatedMessages = mergeStreamingMessage(prev, messageChunk, metadata);
           return updatedMessages;
         });
@@ -139,7 +186,7 @@ function ChatInterface({
     } catch (error) {
       console.error('Error processing streaming chunk:', error);
     }
-  }, []);
+  }, [isDemoMode]);
 
   // Process chunk queue
   const processChunkQueue = useCallback(async () => {
@@ -178,46 +225,47 @@ function ChatInterface({
     }
   }, [streamContext?.messages, isDemoMode, processChunkQueue]);
 
-  // Alternative: Direct message updates
-  useEffect(() => {
-    if (!isDemoMode && streamContext?.messages) {
-      const streamMessages = streamContext.messages;
-
-      if (Array.isArray(streamMessages) && streamMessages.length > 0) {
-        const validMessages = streamMessages.filter(msg =>
-          msg && typeof msg === 'object' && msg.content
-        );
-
-        if (validMessages.length !== messagesRef.current.length ||
-            JSON.stringify(validMessages) !== JSON.stringify(messagesRef.current)) {
-          debouncedUpdateMessages(validMessages);
-        }
-      }
-    }
-  }, [streamContext?.messages, isDemoMode, debouncedUpdateMessages]);
-
   // Clear messages when switching modes
   useEffect(() => {
     if (isDemoMode) {
-      setMessages([]);
+      setDemoMessages([]);
+      chunkQueueRef.current = [];
+    } else {
+      setLocalMessages([]);
       chunkQueueRef.current = [];
     }
   }, [isDemoMode]);
 
-  // Main message handler
+  // Enhanced message sending flow
   const handleSendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
 
-    // If we're in live mode and don't have a thread, ensure one exists
-    if (!showDemo || !isDemoMode) {
-      if (!streamContext?.threadId && streamContext?.ensureThread) {
-        await streamContext.ensureThread();
+    try {
+      if (isDemoMode) {
+        // Demo mode - local only
+        await handleDemoMessage(text);
+      } else {
+        // Live mode - Supabase + LangGraph coordination
+
+        // 1. Save user message to Supabase via ChatContext
+        if (currentThread) {
+          await sendMessage(text); // This saves to Supabase and calls LangGraph
+        } else {
+          // Create thread first if none exists
+          const newThread = await createThread();
+          if (newThread) {
+            await sendMessage(text);
+          }
+        }
+
+        // 2. LangGraph processes and streams response
+        // 3. AI response gets saved to Supabase via ChatContext
       }
-      await handleRealMessage(text);
-    } else {
-      await handleDemoMessage(text);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      Alert.alert('Error', 'Failed to send message');
     }
-  }, [showDemo, isDemoMode, handleDemoMessage, handleRealMessage, streamContext]);
+  }, [isDemoMode, currentThread, sendMessage, createThread, handleDemoMessage]);
 
   const handleStopStreaming = useCallback(async () => {
     try {
@@ -235,143 +283,178 @@ function ChatInterface({
 
   const toggleMode = useCallback(() => {
     if (showDemo) {
-      setIsDemoMode(prev => !prev);
-      setMessages([]);
+      setIsDemoMode(prev => {
+        const newMode = !prev;
+        if (newMode) {
+          setLocalMessages([]);
+        } else {
+          setDemoMessages([]);
+        }
+        return newMode;
+      });
       chunkQueueRef.current = [];
     }
   }, [showDemo]);
 
-  // Thread management handlers
+  // Thread management handlers - Updated to use ChatContext methods
   const handleSelectThread = useCallback(async (threadId: string) => {
     try {
+      // Use ChatContext's selectThread method which handles both switching and loading messages
+      await selectThread(threadId);
+
+      // Sync with LangGraph if needed
       if (streamContext?.switchToThread) {
         await streamContext.switchToThread(threadId);
-
-        // Load existing messages from the selected thread
-        if (streamContext?.loadThreadMessages) {
-          console.log('Attempting to load messages for thread:', threadId);
-          const threadMessages = await streamContext.loadThreadMessages(threadId);
-          if (threadMessages.length > 0) {
-            console.log('Successfully loaded', threadMessages.length, 'messages for thread:', threadId);
-            setMessages(threadMessages);
-          } else {
-            console.log('No existing messages found for thread:', threadId, '- starting with empty conversation');
-            setMessages([]); // Clear messages if thread is empty
-          }
-        } else {
-          console.log('loadThreadMessages not available, clearing messages');
-          setMessages([]); // Clear current messages when switching threads
-        }
-
-        chunkQueueRef.current = [];
       }
+
+      console.log('Thread selected and messages loaded from Supabase:', threadId);
     } catch (error) {
-      console.error('Failed to switch to thread:', error);
+      console.error('Failed to select thread:', error);
       Alert.alert('Error', 'Failed to switch to thread');
     }
-  }, [streamContext]);
+  }, [selectThread, streamContext]);
 
   const handleCreateNewThread = useCallback(async () => {
     try {
-      if (streamContext?.createNewThread) {
-        await streamContext.createNewThread();
-        setMessages([]); // Clear messages for new thread
-        chunkQueueRef.current = [];
+      // Use ChatContext's createThread method which creates in Supabase
+      const newThread = await createThread('New Chat');
+
+      if (newThread) {
+        // Optionally sync with LangGraph
+        if (streamContext?.createNewThread) {
+          await streamContext.createNewThread();
+        }
+        console.log('New thread created in Supabase:', newThread.id);
       }
     } catch (error) {
       console.error('Failed to create new thread:', error);
       Alert.alert('Error', 'Failed to create new thread');
     }
-  }, [streamContext]);
+  }, [createThread, streamContext]);
 
   const handleDeleteThread = useCallback(async (threadId: string) => {
     try {
+      // Use ChatContext's deleteThread method which deletes from Supabase
+      await deleteThread(threadId);
+
+      // Optionally sync with LangGraph
       if (streamContext?.deleteThread) {
         await streamContext.deleteThread(threadId);
       }
+
+      console.log('Thread deleted from Supabase:', threadId);
     } catch (error) {
       console.error('Failed to delete thread:', error);
       Alert.alert('Error', 'Failed to delete thread');
     }
-  }, [streamContext]);
+  }, [deleteThread, streamContext]);
 
   const handleRenameThread = useCallback(async (threadId: string, newTitle: string) => {
     try {
+      // Use ChatContext's renameThread method which updates in Supabase
+      await renameThread(threadId, newTitle);
+
+      // Optionally sync with LangGraph
       if (streamContext?.renameThread) {
         await streamContext.renameThread(threadId, newTitle);
       }
+
+      console.log('Thread renamed in Supabase:', threadId, newTitle);
     } catch (error) {
       console.error('Failed to rename thread:', error);
       Alert.alert('Error', 'Failed to rename thread');
     }
-  }, [streamContext]);
+  }, [renameThread, streamContext]);
 
   const handleBatchDeleteThreads = useCallback(async (threadIds: string[]) => {
     try {
+      // Delete threads one by one using ChatContext
+      for (const threadId of threadIds) {
+        await deleteThread(threadId);
+      }
+
+      // Optionally sync with LangGraph
       if (streamContext?.batchDeleteThreads) {
         await streamContext.batchDeleteThreads(threadIds);
-        // If we deleted the current thread, clear messages
-        if (threadIds.includes(streamContext?.threadId || '')) {
-          setMessages([]);
-          chunkQueueRef.current = [];
-        }
       }
+
+      console.log('Batch deleted threads from Supabase:', threadIds);
     } catch (error) {
       console.error('Failed to batch delete threads:', error);
       Alert.alert('Error', 'Failed to batch delete threads');
     }
-  }, [streamContext]);
+  }, [deleteThread, streamContext]);
   // Message deletion handlers
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     try {
-      // Find and store the message for undo
-      const messageToDelete = messages.find(m => m.id === messageId);
-      if (messageToDelete) {
-        setDeletedMessages(prev => [...prev, { message: messageToDelete, timestamp: Date.now() }]);
-        setShowUndoToast(true);
+      if (isDemoMode) {
+        // For demo mode, remove from local state
+        const messageToDelete = demoMessages.find(m => m.id === messageId);
+        if (messageToDelete) {
+          setDeletedMessages(prev => [...prev, { message: messageToDelete, timestamp: Date.now() }]);
+          setShowUndoToast(true);
+          setTimeout(() => setShowUndoToast(false), 5000);
+        }
+        setDemoMessages(prev => prev.filter(m => m.id !== messageId));
+      } else {
+        // For live mode, use ChatContext to delete from Supabase
+        const messageToDelete = messages.find(m => m.id === messageId);
+        if (messageToDelete) {
+          // Convert back to Message type for consistency
+          const msgAsMessage: Message = messageToDelete as any;
+          setDeletedMessages(prev => [...prev, { message: msgAsMessage, timestamp: Date.now() }]);
+          setShowUndoToast(true);
+          setTimeout(() => setShowUndoToast(false), 5000);
+        }
 
-        // Auto-hide undo toast after 5 seconds
-        setTimeout(() => setShowUndoToast(false), 5000);
+        // Use ChatContext's deleteMessage method
+        const { deleteMessage: deleteMessageFromSupabase } = useChat();
+        await deleteMessageFromSupabase(messageId);
       }
-
-      // Remove message from local state
-      setMessages(prev => prev.filter(m => m.id !== messageId));
-
-      // TODO: If LangGraph supports individual message deletion, add server sync here
-      // Example: await streamContext?.deleteMessage?.(messageId);
-
     } catch (error) {
       console.error('Failed to delete message:', error);
       Alert.alert('Error', 'Failed to delete message');
     }
-  }, [messages]);
+  }, [messages, demoMessages, isDemoMode]);
 
   const handleBatchDeleteMessages = useCallback(async (messageIds: string[]) => {
     try {
-      // Find and store the messages for undo
-      const messagesToDelete = messages.filter(m => messageIds.includes(m.id || ''));
-      if (messagesToDelete.length > 0) {
-        setDeletedMessages(prev => [
-          ...prev,
-          ...messagesToDelete.map(msg => ({ message: msg, timestamp: Date.now() }))
-        ]);
-        setShowUndoToast(true);
+      if (isDemoMode) {
+        // For demo mode, remove from local state
+        const messagesToDelete = demoMessages.filter(m => messageIds.includes(m.id || ''));
+        if (messagesToDelete.length > 0) {
+          setDeletedMessages(prev => [
+            ...prev,
+            ...messagesToDelete.map(msg => ({ message: msg, timestamp: Date.now() }))
+          ]);
+          setShowUndoToast(true);
+          setTimeout(() => setShowUndoToast(false), 5000);
+        }
+        setDemoMessages(prev => prev.filter(m => !messageIds.includes(m.id || '')));
+      } else {
+        // For live mode, use ChatContext to delete from Supabase
+        const messagesToDelete = messages.filter(m => messageIds.includes(m.id || ''));
+        if (messagesToDelete.length > 0) {
+          const msgsAsMessages: Message[] = messagesToDelete as any;
+          setDeletedMessages(prev => [
+            ...prev,
+            ...msgsAsMessages.map(msg => ({ message: msg, timestamp: Date.now() }))
+          ]);
+          setShowUndoToast(true);
+          setTimeout(() => setShowUndoToast(false), 5000);
+        }
 
-        // Auto-hide undo toast after 5 seconds
-        setTimeout(() => setShowUndoToast(false), 5000);
+        // Use ChatContext's deleteMessage method for each message
+        const { deleteMessage: deleteMessageFromSupabase } = useChat();
+        for (const messageId of messageIds) {
+          await deleteMessageFromSupabase(messageId);
+        }
       }
-
-      // Remove messages from local state
-      setMessages(prev => prev.filter(m => !messageIds.includes(m.id || '')));
-
-      // TODO: If LangGraph supports batch message deletion, add server sync here
-      // Example: await streamContext?.batchDeleteMessages?.(messageIds);
-
     } catch (error) {
       console.error('Failed to batch delete messages:', error);
       Alert.alert('Error', 'Failed to batch delete messages');
     }
-  }, [messages]);
+  }, [messages, demoMessages, isDemoMode]);
 
   // Undo functionality for deleted messages
   const [deletedMessages, setDeletedMessages] = useState<{message: Message, timestamp: number}[]>([]);
@@ -390,16 +473,23 @@ function ChatInterface({
   const handleUndoDelete = useCallback(() => {
     const lastDeleted = deletedMessages[deletedMessages.length - 1];
     if (lastDeleted) {
-      setMessages(prev => [...prev, lastDeleted.message].sort((a, b) => {
-        // Sort by message creation time if available, otherwise by ID
-        const aTime = (a as any).created_at || a.id || '';
-        const bTime = (b as any).created_at || b.id || '';
-        return aTime.localeCompare(bTime);
-      }));
+      if (isDemoMode) {
+        setDemoMessages(prev => [...prev, lastDeleted.message].sort((a, b) => {
+          const aTime = (a as any).created_at || a.id || '';
+          const bTime = (b as any).created_at || b.id || '';
+          return aTime.localeCompare(bTime);
+        }));
+      } else {
+        setLocalMessages(prev => [...prev, lastDeleted.message].sort((a, b) => {
+          const aTime = (a as any).created_at || a.id || '';
+          const bTime = (b as any).created_at || b.id || '';
+          return aTime.localeCompare(bTime);
+        }));
+      }
       setDeletedMessages(prev => prev.slice(0, -1));
       setShowUndoToast(false);
     }
-  }, [deletedMessages]);
+  }, [deletedMessages, isDemoMode]);
 
   // Message selection mode state
   const [triggerMessageSelection, setTriggerMessageSelection] = useState(false);

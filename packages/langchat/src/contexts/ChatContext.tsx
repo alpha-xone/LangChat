@@ -1,5 +1,7 @@
+import { Message } from '@langchain/langgraph-sdk';
 import { SupabaseClient } from '@supabase/supabase-js';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { useLangGraphStream } from '../hooks/useLangGraphStream';
 import type { Database, Tables } from '../lib/supabase/types';
 import { useAuth } from './SupabaseAuthContext';
 
@@ -25,9 +27,6 @@ export interface ChatContextType {
   sendMessage: (content: string) => Promise<void>;
   loadMessages: (threadId: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
-
-  // AI Integration
-  invokeLangGraph: (message: string, threadId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -47,6 +46,14 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  // Initialize LangGraph stream
+  const langGraphStream = useLangGraphStream({
+    apiUrl: process.env.EXPO_PUBLIC_LANGGRAPH_API_URL || '',
+    assistantId: process.env.EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID || '',
+    apiKey: process.env.EXPO_PUBLIC_LANGGRAPH_API_KEY || undefined,
+    authToken: session?.access_token,
+  });
 
   const loadThreads = useCallback(async () => {
     if (!user) return;
@@ -107,23 +114,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
         return null;
       }
 
-      // Initialize LangGraph thread state if needed
-      // This ensures communication consistency with LangGraph
-      try {
-        await supabaseClient.functions.invoke('initialize-thread', {
-          body: {
-            threadId: data.id,
-            userId: user.id,
-          },
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-        });
-      } catch (langGraphError) {
-        console.warn('LangGraph thread initialization failed:', langGraphError);
-        // Continue anyway - thread is created in Supabase
-      }
-
+      // Update local state
       setThreads(prev => [data, ...prev]);
       setCurrentThread(data);
       setMessages([]);
@@ -135,7 +126,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [user, supabaseClient, session]);
+  }, [user, supabaseClient]);
 
   const selectThread = useCallback(async (threadId: string) => {
     const thread = threads.find(t => t.id === threadId);
@@ -242,38 +233,30 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     if (!user || !currentThread) return;
 
     try {
-      // Add user message to database
-      const { data: userMessage, error: userError } = await supabaseClient
-        .from('chat_messages')
-        .insert({
-          user_id: user.id,
-          thread_id: currentThread.id,
-          content,
-          role: 'user',
-        })
-        .select()
-        .single();
+      // Create a message object for LangGraph
+      const message: Message = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        content,
+        type: 'human',
+      };
 
-      if (userError) {
-        console.error('Error saving user message:', userError);
-        return;
+      // Set the thread ID in LangGraph stream if it's different
+      if (langGraphStream.threadId !== currentThread.id) {
+        // We might need to create a new LangGraph thread or map to existing Supabase thread
+        // For now, let LangGraph handle thread management
       }
 
-      // Update local state
-      setMessages(prev => [...prev, userMessage]);
+      // Send message using LangGraph stream
+      await langGraphStream.sendMessage(message);
 
-      // Update thread timestamp
-      await supabaseClient
-        .from('chat_threads')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', currentThread.id);
-
-      // Invoke AI response
-      await invokeLangGraph(content, currentThread.id);
+      // Refresh messages from database after LangGraph processes them
+      setTimeout(() => {
+        loadMessages(currentThread.id);
+      }, 1000); // Small delay to allow LangGraph to save to Supabase
     } catch (error) {
       console.error('Error in sendMessage:', error);
     }
-  }, [user, currentThread, supabaseClient]);
+  }, [user, currentThread, langGraphStream, loadMessages]);
 
   const deleteMessage = useCallback(async (messageId: string) => {
     if (!user) return;
@@ -296,99 +279,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     }
   }, [user, supabaseClient]);
 
-  // LangGraph is only used for AI message communication
-  const invokeLangGraph = useCallback(async (message: string, threadId: string) => {
-    if (!user || !session) return;
-
-    try {
-      setIsStreaming(true);
-
-      // Call Supabase Edge Function for secure AI invocation
-      const { data, error } = await supabaseClient.functions.invoke('chat-with-ai', {
-        body: {
-          message,
-          threadId,
-          userId: user.id,
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) {
-        console.error('Error invoking AI:', error);
-
-        // Add error message to chat
-        const errorMessage = {
-          user_id: user.id,
-          thread_id: threadId,
-          content: 'Sorry, I encountered an error. Please try again.',
-          role: 'assistant' as const,
-        };
-
-        const { data: savedError } = await supabaseClient
-          .from('chat_messages')
-          .insert(errorMessage)
-          .select()
-          .single();
-
-        if (savedError) {
-          setMessages(prev => [...prev, savedError]);
-        }
-        return;
-      }
-
-      // Handle successful AI response
-      if (data?.content) {
-        const aiMessage = {
-          user_id: user.id,
-          thread_id: threadId,
-          content: data.content,
-          role: 'assistant' as const,
-          metadata: data.metadata || {},
-        };
-
-        const { data: savedMessage } = await supabaseClient
-          .from('chat_messages')
-          .insert(aiMessage)
-          .select()
-          .single();
-
-        if (savedMessage) {
-          setMessages(prev => [...prev, savedMessage]);
-        }
-      }
-    } catch (error) {
-      console.error('Error in invokeLangGraph:', error);
-
-      // Add fallback error message
-      const errorMessage = {
-        user_id: user.id,
-        thread_id: threadId,
-        content: 'Sorry, I encountered a connection error. Please try again.',
-        role: 'assistant' as const,
-      };
-
-      const { data: savedError } = await supabaseClient
-        .from('chat_messages')
-        .insert(errorMessage)
-        .select()
-        .single();
-
-      if (savedError) {
-        setMessages(prev => [...prev, savedError]);
-      }
-    } finally {
-      setIsStreaming(false);
-    }
-  }, [user, session, supabaseClient]);
-
   const value: ChatContextType = {
     currentThread,
     messages,
     threads,
     isLoading,
-    isStreaming,
+    isStreaming: langGraphStream.isStreaming || isLoading,
     createThread,
     selectThread,
     deleteThread,
@@ -397,7 +293,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
     sendMessage,
     loadMessages,
     deleteMessage,
-    invokeLangGraph,
   };
 
   return (

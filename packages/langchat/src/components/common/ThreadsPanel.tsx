@@ -3,17 +3,18 @@ import FeatherIcon from '@react-native-vector-icons/feather';
 import LucideIcon from '@react-native-vector-icons/lucide';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useChat } from '../../contexts/ChatContext';
 import { Theme } from '../../theme';
 
 export interface Thread {
@@ -29,12 +30,12 @@ interface ThreadsPanelProps {
   onClose: () => void;
   theme: Theme;
   currentThreadId?: string | null;
-  onSelectThread: (threadId: string) => void;
-  onCreateThread: () => Promise<void>;
+  onSelectThread?: (threadId: string) => void; // Made optional since we'll use ChatContext
+  onCreateThread?: () => Promise<void>; // Made optional since we'll use ChatContext
   onDeleteThread?: (threadId: string) => Promise<void>;
   onRenameThread?: (threadId: string, newTitle: string) => Promise<void>;
   onBatchDeleteThreads?: (threadIds: string[]) => Promise<void>;
-  client?: any; // LangGraph client
+  client?: any; // LangGraph client - kept for backward compatibility
 }
 
 export function ThreadsPanel({
@@ -49,8 +50,21 @@ export function ThreadsPanel({
   onBatchDeleteThreads,
   client,
 }: ThreadsPanelProps) {
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Use ChatContext as primary data source
+  const {
+    threads,
+    isLoading,
+    currentThread,
+    loadThreads,
+    createThread,
+    deleteThread: chatDeleteThread,
+    renameThread: chatRenameThread,
+    selectThread
+  } = useChat();
+
+  // Use currentThreadId from ChatContext or props
+  const effectiveCurrentThreadId = currentThreadId || currentThread?.id;
+
   const [newThreadTitle, setNewThreadTitle] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [slideAnim] = useState(new Animated.Value(-300)); // Start off-screen
@@ -73,97 +87,32 @@ export function ThreadsPanel({
 
   // Fetch threads when panel becomes visible
   useEffect(() => {
-    if (visible && client) {
-      fetchThreads();
+    if (visible) {
+      loadThreads(); // This loads from Supabase
     }
-  }, [visible, client]);
-  const fetchThreads = useCallback(async () => {
-    if (!client) return;
-
-    setIsLoading(true);
-    try {
-      // Note: The exact API method for listing threads may vary based on LangGraph SDK version
-      // This is a placeholder implementation - adjust based on actual SDK capabilities
-      let response;
-
-      // Try different possible API methods
-      if (client.threads.search) {
-        response = await client.threads.search({
-          limit: 20,
-          offset: 0,
-        });
-      } else if (client.threads.list) {
-        response = await client.threads.list({
-          limit: 20,
-          offset: 0,
-        });
-      } else {
-        // Fallback: just show current thread if we can't list threads
-        if (currentThreadId) {
-          setThreads([{
-            id: currentThreadId,
-            title: `Current Thread`,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }]);
-        }
-        return;
-      }
-
-      if (response && Array.isArray(response)) {
-        setThreads(response.map((thread: any) => ({
-          id: thread.thread_id || thread.id,
-          title: thread.metadata?.title || thread.title || `Thread ${(thread.thread_id || thread.id).slice(0, 8)}`,
-          created_at: thread.created_at || new Date().toISOString(),
-          updated_at: thread.updated_at || thread.created_at || new Date().toISOString(),
-          metadata: thread.metadata,
-        })));
-      } else if (response && response.data && Array.isArray(response.data)) {
-        // Handle paginated response
-        setThreads(response.data.map((thread: any) => ({
-          id: thread.thread_id || thread.id,
-          title: thread.metadata?.title || thread.title || `Thread ${(thread.thread_id || thread.id).slice(0, 8)}`,
-          created_at: thread.created_at || new Date().toISOString(),
-          updated_at: thread.updated_at || thread.created_at || new Date().toISOString(),
-          metadata: thread.metadata,
-        })));
-      }
-    } catch (error) {
-      console.error('Failed to fetch threads:', error);
-      // Fallback: show current thread if available
-      if (currentThreadId) {
-        setThreads([{
-          id: currentThreadId,
-          title: `Current Thread`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }]);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [client, currentThreadId]);
-
+  }, [visible, loadThreads]);
   const handleCreateThread = useCallback(async () => {
-    if (!client) return;
-
     try {
-      setIsLoading(true);
-      await onCreateThread();
-      setNewThreadTitle('');
-      setShowCreateForm(false);
-      await fetchThreads(); // Refresh the list
+      // Use ChatContext's createThread method which creates in Supabase
+      const newThread = await createThread(newThreadTitle || 'New Chat');
+
+      if (newThread) {
+        // Optionally call parent handler for additional logic
+        if (onCreateThread) {
+          await onCreateThread();
+        }
+
+        setNewThreadTitle('');
+        setShowCreateForm(false);
+        console.log('New thread created in Supabase:', newThread.id);
+      }
     } catch (error) {
       console.error('Failed to create thread:', error);
       Alert.alert('Error', 'Failed to create new thread');
-    } finally {
-      setIsLoading(false);
     }
-  }, [client, onCreateThread, fetchThreads]);
+  }, [createThread, newThreadTitle, onCreateThread]);
 
   const handleDeleteThread = useCallback(async (threadId: string) => {
-    if (!onDeleteThread || !client) return;
-
     Alert.alert(
       'Delete Thread',
       'Are you sure you want to delete this thread? This action cannot be undone.',
@@ -174,49 +123,51 @@ export function ThreadsPanel({
           style: 'destructive',
           onPress: async () => {
             try {
-              setIsLoading(true);
+              // Use ChatContext's deleteThread method which deletes from Supabase
+              await chatDeleteThread(threadId);
 
-              // Always use the parent handler first as it contains important state management logic
-              await onDeleteThread(threadId);
+              // Optionally call parent handler for additional logic
+              if (onDeleteThread) {
+                await onDeleteThread(threadId);
+              }
 
-              await fetchThreads(); // Refresh the list
+              console.log('Thread deleted from Supabase:', threadId);
             } catch (error) {
               console.error('Failed to delete thread:', error);
               Alert.alert('Error', 'Failed to delete thread');
-            } finally {
-              setIsLoading(false);
             }
           },
         },
       ]
     );
-  }, [onDeleteThread, client, fetchThreads]);
+  }, [chatDeleteThread, onDeleteThread]);
 
   const handleRenameThread = useCallback(async (threadId: string, newTitle: string) => {
-    if (!onRenameThread || !client || !newTitle.trim()) return;
+    if (!newTitle.trim()) return;
 
     try {
-      setIsLoading(true);
+      // Use ChatContext's renameThread method which updates in Supabase
+      await chatRenameThread(threadId, newTitle.trim());
 
-      // Always use the parent handler first as it contains important state management logic
-      await onRenameThread(threadId, newTitle.trim());
+      // Optionally call parent handler for additional logic
+      if (onRenameThread) {
+        await onRenameThread(threadId, newTitle.trim());
+      }
 
       setRenamingThreadId(null);
       setRenameTitle('');
-      await fetchThreads(); // Refresh the list
+      console.log('Thread renamed in Supabase:', threadId, newTitle);
     } catch (error) {
       console.error('Failed to rename thread:', error);
       Alert.alert('Error', 'Failed to rename thread');
-    } finally {
-      setIsLoading(false);
     }
-  }, [onRenameThread, client, fetchThreads]);
+  }, [chatRenameThread, onRenameThread]);
 
   const handleBatchDelete = useCallback(async () => {
-    if (!onBatchDeleteThreads || !client || selectedThreads.size === 0) return;
+    if (selectedThreads.size === 0) return;
 
     // Filter out current thread from deletion
-    const threadsToDelete = Array.from(selectedThreads).filter(id => id !== currentThreadId);
+    const threadsToDelete = Array.from(selectedThreads).filter(id => id !== effectiveCurrentThreadId);
 
     if (threadsToDelete.length === 0) {
       Alert.alert('Info', 'Cannot delete the current thread. Please select other threads.');
@@ -233,25 +184,28 @@ export function ThreadsPanel({
           style: 'destructive',
           onPress: async () => {
             try {
-              setIsLoading(true);
+              // Delete threads one by one using ChatContext
+              for (const threadId of threadsToDelete) {
+                await chatDeleteThread(threadId);
+              }
 
-              // Always use the parent handler first as it contains important state management logic
-              await onBatchDeleteThreads(threadsToDelete);
+              // Optionally call parent handler for additional logic
+              if (onBatchDeleteThreads) {
+                await onBatchDeleteThreads(threadsToDelete);
+              }
 
               setSelectedThreads(new Set());
               setIsSelectionMode(false);
-              await fetchThreads(); // Refresh the list
+              console.log('Batch deleted threads from Supabase:', threadsToDelete);
             } catch (error) {
               console.error('Failed to batch delete threads:', error);
               Alert.alert('Error', 'Failed to delete threads');
-            } finally {
-              setIsLoading(false);
             }
           },
         },
       ]
     );
-  }, [onBatchDeleteThreads, client, selectedThreads, currentThreadId, fetchThreads]);
+  }, [selectedThreads, effectiveCurrentThreadId, chatDeleteThread, onBatchDeleteThreads]);
 
   const toggleThreadSelection = useCallback((threadId: string) => {
     setSelectedThreads(prev => {
@@ -539,7 +493,12 @@ export function ThreadsPanel({
                   if (isSelectionMode) {
                     toggleThreadSelection(thread.id);
                   } else {
-                    onSelectThread(thread.id);
+                    // Use ChatContext's selectThread method or fall back to prop
+                    if (selectThread) {
+                      selectThread(thread.id);
+                    } else if (onSelectThread) {
+                      onSelectThread(thread.id);
+                    }
                     onClose();
                   }
                 }}
@@ -602,7 +561,12 @@ export function ThreadsPanel({
                       <TouchableOpacity
                         onPress={() => {
                           if (!isSelectionMode) {
-                            onSelectThread(thread.id);
+                            // Use ChatContext's selectThread method or fall back to prop
+                            if (selectThread) {
+                              selectThread(thread.id);
+                            } else if (onSelectThread) {
+                              onSelectThread(thread.id);
+                            }
                             onClose();
                           }
                         }}

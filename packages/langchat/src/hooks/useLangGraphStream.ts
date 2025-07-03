@@ -1,11 +1,12 @@
-import { mergeStreamingMessage, processStreamChunk } from '../lib/stream-utils';
 import { Client, Message } from '@langchain/langgraph-sdk';
 import { useCallback, useEffect, useState } from 'react';
+import { mergeStreamingMessage, processStreamChunk } from '../lib/stream-utils';
 
 interface UseLangGraphStreamProps {
   apiUrl: string;
   assistantId: string;
   apiKey?: string;
+  authToken?: string; // Add auth token support
 }
 
 interface StreamState {
@@ -15,7 +16,7 @@ interface StreamState {
   threadId: string | null;
 }
 
-export function useLangGraphStream({ apiUrl, assistantId, apiKey }: UseLangGraphStreamProps) {
+export function useLangGraphStream({ apiUrl, assistantId, apiKey, authToken }: UseLangGraphStreamProps) {
   const [state, setState] = useState<StreamState>({
     messages: [],
     isStreaming: false,
@@ -28,10 +29,24 @@ export function useLangGraphStream({ apiUrl, assistantId, apiKey }: UseLangGraph
   // Initialize client
   useEffect(() => {
     try {
-      const newClient = new Client({
+      let clientConfig: any = {
         apiUrl,
         ...(apiKey && { apiKey }),
-      });
+      };      // Add authorization header if authToken is provided
+      if (authToken) {
+        // Set default headers for all requests
+        clientConfig.defaultHeaders = {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        };
+
+        console.log('Setting LangGraph client with auth token:', authToken ? 'present' : 'missing');
+        console.log('Auth token preview:', authToken ? authToken.substring(0, 20) + '...' : 'none');
+      } else {
+        console.warn('No auth token provided to LangGraph client');
+      }
+
+      const newClient = new Client(clientConfig);
       setClient(newClient);
     } catch (error) {
       console.error('Failed to initialize LangGraph client:', error);
@@ -40,7 +55,7 @@ export function useLangGraphStream({ apiUrl, assistantId, apiKey }: UseLangGraph
         error: 'Failed to initialize LangGraph client'
       }));
     }
-  }, [apiUrl, apiKey]);
+  }, [apiUrl, apiKey, authToken]); // Add authToken to dependencies
 
   const sendMessage = useCallback(async (message: Message) => {
     if (!client) {
@@ -62,17 +77,27 @@ export function useLangGraphStream({ apiUrl, assistantId, apiKey }: UseLangGraph
       // Create thread if we don't have one
       let currentThreadId = state.threadId;
       if (!currentThreadId) {
+        console.log('Creating thread with auth token:', authToken ? 'present' : 'missing');
         const thread = await client.threads.create();
         currentThreadId = thread.thread_id;
         setState(prev => ({ ...prev, threadId: currentThreadId }));
-      }      // Stream the response
+      }      // Stream the response with optional headers
+      const streamConfig: any = {
+        input: { messages: [message] },
+        streamMode: 'messages-tuple',
+      };
+
+      // Add authorization header to stream config if available
+      if (authToken) {
+        streamConfig.headers = {
+          'Authorization': `Bearer ${authToken}`,
+        };
+      }
+
       const stream = client.runs.stream(
         currentThreadId,
         assistantId,
-        {
-          input: { messages: [message] },
-          streamMode: 'messages-tuple',
-        }
+        streamConfig
       );
 
       // Process streaming responses
@@ -99,16 +124,27 @@ export function useLangGraphStream({ apiUrl, assistantId, apiKey }: UseLangGraph
       }
     } catch (error) {
       console.error('Failed to send message:', error);
+
+      // Enhanced error logging for authorization issues
+      if (error instanceof Error && error.message.includes('403')) {
+        console.error('❌ Authorization error details:', {
+          hasAuthToken: !!authToken,
+          authTokenLength: authToken ? authToken.length : 0,
+          authTokenPrefix: authToken ? authToken.substring(0, 20) + '...' : 'none',
+          error: error.message
+        });
+      }
+
       setState(prev => ({
         ...prev,
-        error: 'Failed to send message',
+        error: `Failed to send message: ${error instanceof Error ? error.message : String(error)}`,
         // Remove the optimistic message on error
         messages: prev.messages.slice(0, -1),
       }));
     } finally {
       setState(prev => ({ ...prev, isStreaming: false }));
     }
-  }, [client, assistantId, state.threadId]);
+  }, [client, assistantId, state.threadId, authToken]);
 
   const clearMessages = useCallback(() => {
     setState(prev => ({ ...prev, messages: [], threadId: null }));
