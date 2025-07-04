@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Theme } from '../types';
-import { defaultThemes, type ThemeMode, type ThemeName, getThemeForMode, createCustomTheme, validateTheme } from './themes';
+import { defaultThemes, type ThemeMode, type ThemeName, createCustomTheme, validateTheme } from './themes';
 
 interface ThemeStore {
   currentTheme: Theme;

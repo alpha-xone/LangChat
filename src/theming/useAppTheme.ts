@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { Appearance } from 'react-native';
-import { useThemeStore, useCurrentTheme, useThemeMode, useThemeActions, useThemeSelectors } from './store';
+import { useCurrentTheme, useThemeMode, useThemeActions, useThemeSelectors } from './store';
 import { createCustomTheme, validateTheme, isColorAccessible, THEME_CONSTANTS } from './themes';
 import type { Theme } from '../types';
-import type { ThemeMode, ThemeName } from './themes';
+import type { ThemeName } from './themes';
 
 export interface ThemedStyle {
   backgroundColor?: string;
