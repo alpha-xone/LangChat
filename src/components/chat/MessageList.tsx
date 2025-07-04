@@ -58,7 +58,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         id: msg.id,
         messages: [msg],
         timestamp: new Date(msg.createdAt),
-        senderId: msg.senderId,
+        senderId: msg.senderId || 'unknown',
         senderName: msg.senderName || 'Unknown'
       }));
     }
@@ -68,21 +68,23 @@ export const MessageList: React.FC<MessageListProps> = ({
 
     messages.forEach(message => {
       const messageTime = new Date(message.createdAt);
+      const messageSenderId = message.senderId || 'unknown';
       const shouldGroup = currentGroup &&
-        currentGroup.senderId === message.senderId &&
+        currentGroup.senderId === messageSenderId &&
         (messageTime.getTime() - currentGroup.timestamp.getTime()) < groupTimeThreshold;
 
       if (shouldGroup && currentGroup) {
         currentGroup.messages.push(message);
       } else {
-        currentGroup = {
+        const newGroup: MessageGroup = {
           id: `group-${message.id}`,
           messages: [message],
           timestamp: messageTime,
-          senderId: message.senderId,
+          senderId: messageSenderId,
           senderName: message.senderName || 'Unknown'
         };
-        groups.push(currentGroup);
+        groups.push(newGroup);
+        currentGroup = newGroup;
       }
     });
 

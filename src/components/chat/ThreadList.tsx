@@ -6,8 +6,6 @@ import { useAppTheme } from '../../theming/useAppTheme';
 export const ThreadList: React.FC<ThreadListProps> = ({
   threads,
   onThreadSelect,
-  onThreadDelete,
-  onThreadFavorite
 }) => {
   const { theme } = useAppTheme();
 
@@ -24,7 +22,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     threadTitle: {
       fontSize: theme.typography.fontSize.medium,
       color: theme.colors.text,
-      fontWeight: theme.typography.fontWeight.medium,
+      fontWeight: '600' as const,
       marginBottom: theme.spacing.xs,
     },
     threadDate: {

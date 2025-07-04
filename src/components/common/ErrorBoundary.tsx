@@ -55,7 +55,7 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({ error }) =>
     },
     title: {
       fontSize: theme.typography.fontSize.large,
-      fontWeight: theme.typography.fontWeight.bold,
+      fontWeight: 'bold' as const,
       color: theme.colors.error,
       marginBottom: theme.spacing.md,
       textAlign: 'center',

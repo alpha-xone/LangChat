@@ -200,7 +200,7 @@ export class AuthService {
   onAuthStateChange(callback: (user: User | null) => void) {
     this.authListeners.push(callback);
 
-    const subscription = this.supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+    const subscription = this.supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
       const user = session?.user ? this.mapSupabaseUser(session.user) : null;
 
       if (user) {

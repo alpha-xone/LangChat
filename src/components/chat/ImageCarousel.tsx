@@ -7,8 +7,7 @@ import {
   TouchableOpacity,
   View,
   Text,
-  Modal,
-  ActivityIndicator
+  Modal
 } from 'react-native';
 import type { Attachment } from '../../types';
 import { useAppTheme } from '../../theming/useAppTheme';
@@ -69,7 +68,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
       height: maxPreviewHeight,
       borderRadius: theme.borderRadius.md,
       backgroundColor: theme.colors.surface,
-    },
+    } as const,
     lastImage: {
       marginRight: theme.spacing.md,
     },
@@ -85,7 +84,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
     counterText: {
       color: 'white',
       fontSize: theme.typography.fontSize.small,
-      fontWeight: theme.typography.fontWeight.medium,
+      fontWeight: '600' as const,
     },
     loadingOverlay: {
       position: 'absolute',
@@ -109,7 +108,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
       width: screenWidth * 0.95,
       height: screenHeight * 0.8,
       resizeMode: 'contain',
-    },
+    } as const,
     modalCloseArea: {
       position: 'absolute',
       top: 0,
@@ -129,7 +128,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
     modalCounterText: {
       color: 'white',
       fontSize: theme.typography.fontSize.medium,
-      fontWeight: theme.typography.fontWeight.medium,
+      fontWeight: '600' as const,
     },
   });
 
@@ -171,12 +170,12 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
               style={styles.image}
               onLoadStart={() => handleImageLoadStart(image.id)}
               onLoadEnd={() => handleImageLoadEnd(image.id)}
-              onError={() => handleImageLoadEnd(image.id)}
+              resizeMode="cover"
             />
 
             {imageLoading.has(image.id) && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={{ color: theme.colors.textSecondary }}>Loading...</Text>
               </View>
             )}
 
@@ -192,13 +191,13 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
       </ScrollView>
 
       {/* Full-screen modal */}
-      <Modal
-        visible={selectedImage !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeModal}
-      >
-        {selectedImage && (
+      {selectedImage && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeModal}
+        >
           <View style={styles.modal}>
             <TouchableOpacity
               style={styles.modalCloseArea}
@@ -210,16 +209,16 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
               style={styles.modalImage}
               resizeMode="contain"
             />
-            {filteredImages.length > 1 && (
+            {showCount && filteredImages.length > 1 && (
               <View style={styles.modalImageCounter}>
                 <Text style={styles.modalCounterText}>
-                  {selectedImage.index + 1} of {filteredImages.length}
+                  {selectedImage.index + 1}/{filteredImages.length}
                 </Text>
               </View>
             )}
           </View>
-        )}
-      </Modal>
+        </Modal>
+      )}
     </>
   );
 };

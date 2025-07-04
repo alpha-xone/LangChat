@@ -9,7 +9,6 @@ interface MarkdownRendererProps {
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
-  onLinkPress
 }) => {
   const { theme } = useAppTheme();
 
@@ -37,11 +36,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     },
     heading: {
       fontSize: theme.typography.fontSize.large,
-      fontWeight: theme.typography.fontWeight.bold,
+      fontWeight: 'bold' as const,
       marginVertical: theme.spacing.sm,
     },
     bold: {
-      fontWeight: theme.typography.fontWeight.bold,
+      fontWeight: 'bold' as const,
     },
     italic: {
       fontStyle: 'italic',

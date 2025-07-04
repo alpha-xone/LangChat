@@ -682,3 +682,6 @@ export const useDebounce = <T>(value: T, delay: number): T => {
 
   return debouncedValue;
 };
+
+// Export useChat hooks (remove duplicate useAuth export)
+export { useChat } from './useChat';

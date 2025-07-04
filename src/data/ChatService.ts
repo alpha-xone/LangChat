@@ -527,8 +527,8 @@ export class ChatService {
 
       return {
         messageCount,
-        firstMessageDate,
-        lastMessageDate,
+        firstMessageDate: firstMessageDate || null,
+        lastMessageDate: lastMessageDate || null,
         userMessageCount,
         aiMessageCount,
       };
@@ -608,19 +608,6 @@ export class ChatService {
     };
   }
 
-  // Error handling helpers
-  private handleError(error: any, context: string): Error {
-    if (error.code === 'PGRST116') {
-      return new Error(`${context}: Record not found`);
-    }
-    if (error.code === 'PGRST301') {
-      return new Error(`${context}: Unauthorized access`);
-    }
-    if (error.code === 'PGRST204') {
-      return new Error(`${context}: No content found`);
-    }
-    return new Error(`${context}: ${error.message || 'Unknown error'}`);
-  }
 }
 
 // Export singleton instance

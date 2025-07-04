@@ -1,6 +1,5 @@
 import { Client } from '@langchain/langgraph-sdk';
 import type { Message } from '../types';
-import { AuthService } from '../data/AuthService';
 
 export interface LangGraphConfig {
   apiUrl: string;
@@ -19,7 +18,7 @@ export interface StreamingOptions {
 
 export class LangGraphClient {
   private client: Client;
-  private authService: AuthService;
+  // private _authService: AuthService; // Unused for now
   private config: LangGraphConfig;
 
   constructor(config: LangGraphConfig) {
@@ -35,7 +34,7 @@ export class LangGraphClient {
       apiKey: this.config.apiKey,
     });
 
-    this.authService = new AuthService();
+    // this._authService = new AuthService(); // Unused for now
   }
 
   async sendMessage(
@@ -119,14 +118,14 @@ export class LangGraphClient {
     }
   }
 
-  async getThreadMessages(threadId: string, options?: {
+  async getThreadMessages(threadId: string, _options?: {
     limit?: number;
     before?: string;
     after?: string;
   }): Promise<Message[]> {
     try {
       // Mock implementation - replace with actual API call when available
-      const messages = await this.client.threads.getState(threadId);
+      await this.client.threads.getState(threadId);
 
       return [];
     } catch (error) {
@@ -173,8 +172,31 @@ export class LangGraphClient {
   }> {
     try {
       const run = await this.client.runs.get(threadId, runId);
+
+      // Map run status to expected values
+      let mappedStatus: 'pending' | 'success' | 'error' | 'timeout' | 'interrupted';
+      switch (run.status) {
+        case 'running':
+          mappedStatus = 'pending';
+          break;
+        case 'success':
+          mappedStatus = 'success';
+          break;
+        case 'error':
+          mappedStatus = 'error';
+          break;
+        case 'timeout':
+          mappedStatus = 'timeout';
+          break;
+        case 'interrupted':
+          mappedStatus = 'interrupted';
+          break;
+        default:
+          mappedStatus = 'pending';
+      }
+
       return {
-        status: run.status,
+        status: mappedStatus,
         completedAt: run.updated_at || run.created_at,
         error: run.status === 'error' ? 'Run failed' : undefined,
       };
@@ -291,19 +313,6 @@ export class LangGraphClient {
     };
   }
 
-  private mapLangGraphMessage(message: any): Message {
-    return {
-      id: message.id,
-      threadId: message.thread_id,
-      type: message.type === 'human' ? 'user' : (message.type || 'ai'),
-      content: message.content,
-      metadata: message.metadata,
-      attachments: message.attachments || [],
-      createdAt: new Date(message.created_at),
-      updatedAt: new Date(message.updated_at),
-    };
-  }
-
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -327,21 +336,6 @@ export class LangGraphClient {
     this.config = { ...this.config, ...updates };
   }
 
-  // Retry logic
-  private async retryOperation<T>(
-    operation: () => Promise<T>,
-    retries: number = this.config.retryAttempts || 3
-  ): Promise<T> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        return await operation();
-      } catch (error) {
-        if (i === retries - 1) throw error;
-        await this.sleep(Math.pow(2, i) * 1000); // Exponential backoff
-      }
-    }
-    throw new Error('Max retries exceeded');
-  }
 }
 
 // Export singleton instance

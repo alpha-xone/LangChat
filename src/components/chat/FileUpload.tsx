@@ -10,8 +10,6 @@ interface FileUploadProps {
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
-  onFileSelect,
-  acceptedTypes = ['image/*', 'application/pdf', 'text/*'],
   maxFiles = 5,
   maxSize = 10 * 1024 * 1024, // 10MB
 }) => {
@@ -52,7 +50,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     buttonText: {
       color: theme.colors.background,
       fontSize: theme.typography.fontSize.medium,
-      fontWeight: theme.typography.fontWeight.medium,
+      fontWeight: '600' as const,
     },
     hint: {
       fontSize: theme.typography.fontSize.small,

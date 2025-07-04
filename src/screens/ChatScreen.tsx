@@ -5,8 +5,6 @@ import { useAppTheme } from '../theming/useAppTheme';
 import { useAuth } from '../hooks';
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
-  config,
-  theme,
   onAuthStateChange,
   onError
 }) => {
@@ -35,7 +33,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     text: {
       fontSize: currentTheme.typography.fontSize.large,
       color: currentTheme.colors.text,
-      fontWeight: currentTheme.typography.fontWeight.medium,
+      fontWeight: '600' as const,
     },
   });
 

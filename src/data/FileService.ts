@@ -36,7 +36,6 @@ export class FileService {
         throw new Error(validation.error);
       }
 
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
       const timestamp = Date.now();
       const fileName = `${userId}/${timestamp}_${this.sanitizeFileName(file.name)}`;
 
@@ -99,7 +98,10 @@ export class FileService {
 
     for (let i = 0; i < totalFiles; i++) {
       try {
-        const attachment = await this.uploadFile(files[i], userId, {
+        const file = files[i];
+        if (!file) continue;
+
+        const attachment = await this.uploadFile(file, userId, {
           generateThumbnail: true,
           onProgress: (progress) => options?.onProgress?.(progress, i),
         });
@@ -107,7 +109,8 @@ export class FileService {
         attachments.push(attachment);
         options?.onFileComplete?.(attachment, i);
       } catch (error) {
-        console.error(`Failed to upload file ${files[i].name}:`, error);
+        const file = files[i];
+        console.error(`Failed to upload file ${file?.name || 'unknown'}:`, error);
         // Continue with other files
       }
     }
@@ -212,6 +215,10 @@ export class FileService {
       }
 
       const file = data[0];
+      if (!file) {
+        return null;
+      }
+
       return {
         size: file.metadata?.size || 0,
         lastModified: file.updated_at || file.created_at,
@@ -379,10 +386,6 @@ export class FileService {
     return this.allowedImageTypes.includes(mimeType.toLowerCase());
   }
 
-  private isDocument(mimeType: string): boolean {
-    return this.allowedDocumentTypes.includes(mimeType.toLowerCase());
-  }
-
   getSupportedFileTypes(): string[] {
     return [...this.allowedImageTypes, ...this.allowedDocumentTypes];
   }
@@ -509,8 +512,8 @@ export class FileService {
     return mimeType.startsWith('image/');
   }
 
-  static getImageDimensions(file: ReactNativeFile): Promise<{ width: number; height: number }> {
-    return new Promise((resolve, reject) => {
+  static getImageDimensions(_file: ReactNativeFile): Promise<{ width: number; height: number }> {
+    return new Promise((resolve) => {
       // This would need platform-specific implementation
       // For now, return default dimensions
       resolve({ width: 800, height: 600 });
