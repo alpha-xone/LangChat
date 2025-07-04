@@ -49,24 +49,11 @@ export class LangGraphClient {
     }
   ): Promise<string> {
     try {
-      const accessToken = await this.authService.getAccessToken();
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
       const response = await this.client.runs.create(threadId, options?.assistantId || this.config.defaultAssistantId || 'default', {
         input: {
           message,
           attachments: attachments || [],
           metadata: options?.metadata || {},
-        },
-        config: {
-          headers,
         },
       });
 
