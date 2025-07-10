@@ -170,8 +170,7 @@ export function MessageList({
         },
       ]
     );
-  }, [onDeleteMessage]);
-  const renderMessage = ({ item: message }: { item: Message }) => {
+  }, [onDeleteMessage]);  const renderMessage = ({ item: message }: { item: Message }) => {
     const isUser = message.type === 'human';
     const isTool = message.type === 'tool';
     const messageId = message.id;

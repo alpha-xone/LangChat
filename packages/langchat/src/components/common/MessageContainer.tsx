@@ -16,8 +16,11 @@ export function MessageContainer({
     <View style={[
       {
         padding: 4,
-        alignItems: isUser ? 'flex-end' : 'flex-start',
+        alignSelf: isUser ? 'flex-end' : 'flex-start',
         marginRight: isUser ? 5 : 0,
+        marginLeft: isUser ? 5 : 0,
+        // Ensure proper width constraints
+        maxWidth: '85%',
       },
       style
     ]}>

@@ -65,13 +65,15 @@ export function useLangGraphStream({ apiUrl, assistantId, apiKey }: UseLangGraph
         const thread = await client.threads.create();
         currentThreadId = thread.thread_id;
         setState(prev => ({ ...prev, threadId: currentThreadId }));
-      }      // Stream the response
+      }
+      // Stream the response
       const stream = client.runs.stream(
         currentThreadId,
         assistantId,
         {
           input: { messages: [message] },
-          streamMode: 'messages-tuple',
+          streamMode: 'messages',
+          streamSubgraphs: true,
         }
       );
 
@@ -82,6 +84,7 @@ export function useLangGraphStream({ apiUrl, assistantId, apiKey }: UseLangGraph
           const { messageChunk, metadata } = processStreamChunk(chunk.data);
 
           if (messageChunk && messageChunk.content) {
+            // console.log(messageChunk)
             setState(prev => {
               const updatedMessages = mergeStreamingMessage(prev.messages, messageChunk, metadata);
               return {

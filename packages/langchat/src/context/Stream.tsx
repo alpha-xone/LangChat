@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState
 } from "react";
@@ -139,35 +140,79 @@ const StreamSession = ({
     createThread();
   }, [client, threadId, autoCreateThread, isCreatingThread, onError]);
 
-  const streamValue = useTypedStream({
-    apiUrl,
-    apiKey: apiKey ?? undefined,
-    assistantId,
-    threadId: threadId ?? null,
-    // Add auth token to the stream configuration
-    defaultHeaders: session?.access_token ? {
-      'Authorization': `Bearer ${session.access_token}`,
-    } : undefined,
-    onThreadId: (id) => {
-      // Only accept thread ID from stream if we don't already have one
-      if (id && !threadId && !isCreatingThread) {
-        setThreadId(id);
-        hasInitiatedCreation.current = true;
-        console.log('Thread ID accepted from stream:', id);
-      } else if (id && threadId && id !== threadId) {
-        // If stream provides a different thread ID, log it but don't change
-        console.log('Thread ID from stream differs from current:', 'stream=', id, 'current=', threadId);
-      }
-    },
-    // Add logging for when messages are submitted
-    onCreated: (data) => {
-      console.log('🔐 Submitting to LangGraph with auth token:', {
-        hasToken: !!session?.access_token,
-        tokenPrefix: session?.access_token ? session.access_token.substring(0, 10) + '...' : 'none',
-        threadId: threadId,
-      });
-    },
-  });
+  // Create a ref to track the current threadId for callbacks
+  const currentThreadIdRef = useRef(threadId);
+  useEffect(() => {
+    currentThreadIdRef.current = threadId;
+  }, [threadId]);
+
+  // Create a stable key for the stream configuration
+  const streamKey = useMemo(() => {
+    return `${apiUrl}-${assistantId}-${threadId || 'no-thread'}`;
+  }, [apiUrl, assistantId, threadId]);
+
+  // Memoize stream configuration to force recreation when threadId changes
+  const streamConfig = useMemo(() => {
+    console.log('Creating stream config with threadId:', threadId, 'key:', streamKey);
+    const config = {
+      apiUrl,
+      apiKey: apiKey ?? undefined,
+      assistantId,
+      threadId: threadId ?? null,
+      // Add auth token to the stream configuration
+      defaultHeaders: session?.access_token ? {
+        'Authorization': `Bearer ${session.access_token}`,
+      } : undefined,
+      onThreadId: (id: string) => {
+        console.log('Stream onThreadId callback:', { received: id, current: threadId, isCreating: isCreatingThread });
+        // Only accept thread ID from stream if we don't already have one
+        if (id && !threadId && !isCreatingThread) {
+          setThreadId(id);
+          hasInitiatedCreation.current = true;
+          console.log('Thread ID accepted from stream:', id);
+        } else if (id && threadId && id !== threadId) {
+          // If stream provides a different thread ID but we already have one, we should use ours
+          console.log('Thread ID from stream differs from current:', 'stream=', id, 'current=', threadId);
+          // Note: We don't update threadId here because we want to keep using our selected thread
+        }
+      },
+      // Add logging for when messages are submitted
+      onCreated: (data: any) => {
+        // Get the current threadId from ref to avoid closure issues
+        const currentThreadId = currentThreadIdRef.current;
+        const configuredThreadId = config.threadId;
+        console.log('🔐 Submitting to LangGraph with auth token:', {
+          hasToken: !!session?.access_token,
+          tokenPrefix: session?.access_token ? session.access_token.substring(0, 10) + '...' : 'none',
+          threadId: currentThreadId, // Current threadId from ref
+          streamThreadId: data?.thread_id || 'unknown',
+          configThreadId: configuredThreadId, // ThreadId used in config
+          refThreadId: currentThreadIdRef.current,
+          shouldUseConfiguredThread: !!configuredThreadId,
+          streamKey: streamKey,
+        });
+
+        // If we have a configured threadId but stream is using a different one, log a warning
+        if (configuredThreadId && data?.thread_id && data.thread_id !== configuredThreadId) {
+          console.warn('⚠️ Stream is using different threadId than configured!', {
+            configured: configuredThreadId,
+            stream: data.thread_id,
+            streamKey: streamKey,
+          });
+        }
+      },
+    };
+
+    return config;
+  }, [apiUrl, apiKey, assistantId, threadId, session?.access_token, isCreatingThread, streamKey]);
+
+  // Use the stream with the memoized config
+  const streamValue = useTypedStream(streamConfig);
+
+  // Log when streamValue changes to track recreation
+  useEffect(() => {
+    console.log('StreamValue updated - threadId:', threadId, 'isLoading:', streamValue?.isLoading);
+  }, [streamValue, threadId]);
 
   const clearMessages = useCallback(() => {
     // For now, we'll just clear local state since branch might not be available
@@ -197,15 +242,12 @@ const StreamSession = ({
   const switchToThread = useCallback(async (newThreadId: string) => {
     if (client) {
       try {
+        console.log('Switching to thread:', newThreadId, 'from:', threadId);
+
+        // Set the new thread ID - this will trigger useMemo to recreate the stream
         setThreadId(newThreadId);
         hasInitiatedCreation.current = true; // Mark that we have a thread
-        console.log('Switched to thread:', newThreadId);
-
-        // Force a reload by temporarily clearing and resetting the thread ID
-        // This ensures the stream context picks up the new/same thread properly
-        if (newThreadId === threadId) {
-          console.log('Reloading same thread:', newThreadId);
-        }
+        console.log('Successfully switched to thread:', newThreadId);
       } catch (error) {
         console.error('Failed to switch thread:', error);
         onError?.('Failed to switch thread');
@@ -377,29 +419,96 @@ const StreamSession = ({
     }
   }, [apiKey, apiUrl, onError]);
 
+  // Custom submit method using client.runs.stream with messages mode
+  const submitMessage = useCallback(async ({ messages }: { messages: Message[] }) => {
+    if (!client) {
+      throw new Error('LangGraph client not initialized');
+    }
+
+    let currentThreadId = threadId;
+
+    // Ensure we have a thread
+    if (!currentThreadId) {
+      if (autoCreateThread) {
+        await createNewThread();
+        currentThreadId = currentThreadIdRef.current;
+      } else {
+        throw new Error('No thread available and auto-creation is disabled');
+      }
+    }
+
+    if (!currentThreadId) {
+      throw new Error('Failed to get or create thread ID');
+    }
+
+    try {
+      console.log('🚀 Submitting messages via client.runs.stream:', {
+        threadId: currentThreadId,
+        assistantId,
+        messageCount: messages.length,
+        authToken: session?.access_token ? 'Present' : 'Missing',
+      });
+
+      // Create the stream using client.runs.stream with messages mode
+      const stream = client.runs.stream(
+        currentThreadId,
+        assistantId,
+        {
+          input: { messages },
+          streamMode: 'messages', // Use messages mode
+          streamSubgraphs: true,
+          defaultHeaders: session?.access_token ? {
+            'Authorization': `Bearer ${session.access_token}`,
+          } : {},
+        },
+      );
+
+      // Process the stream chunks
+      for await (const chunk of stream) {
+        // Only process chunks with event type "messages"
+        if (chunk.event !== "messages/partial") continue;
+
+        const [messageChunk, metadata] = chunk.data;
+
+        // Skip empty content
+        if (!messageChunk?.content) continue;
+
+        console.log("Token:", messageChunk.content);
+        // console.log("From node:", metadata.langgraph_node);
+
+        // Update the local message state with incremental content
+        setLocalMessages(prev => {
+          const updatedMessages = updateIncrementalMessage(prev, messageChunk, metadata);
+          return updatedMessages;
+        });
+      }
+
+      console.log('✅ Message submission completed');
+    } catch (error) {
+      console.error('❌ Failed to submit message:', error);
+      throw error;
+    }
+  }, [client, threadId, assistantId, session?.access_token, autoCreateThread, createNewThread]);
+
   // Enhanced stream value with additional methods
-  const enhancedStreamValue = streamValue && client ? {
-    ...streamValue,
-    threadId,
-    clearMessages,
-    createNewThread,
-    switchToThread,
-    deleteThread,
-    renameThread,
-    batchDeleteThreads,
-    ensureThread,
-    loadThreadMessages,
-    client,
-  } : streamValue ? {
-    ...streamValue,
-    threadId,
-    clearMessages,
-    createNewThread,
-    switchToThread,
-    deleteThread,
-    ensureThread,
-    loadThreadMessages,
-  } : null;
+  const enhancedStreamValue = useMemo(() => {
+    if (!streamValue) return null;
+
+    return {
+      ...streamValue,
+      threadId,
+      submit: submitMessage, // Use our custom submit method
+      clearMessages,
+      createNewThread,
+      switchToThread,
+      deleteThread,
+      renameThread,
+      batchDeleteThreads,
+      ensureThread,
+      loadThreadMessages,
+      client,
+    };
+  }, [streamValue, threadId, submitMessage, clearMessages, createNewThread, switchToThread, deleteThread, renameThread, batchDeleteThreads, ensureThread, loadThreadMessages, client]);
 
   return (
     <StreamContext.Provider value={enhancedStreamValue}>
@@ -467,3 +576,48 @@ export const useStreamContext = () => {
   const context = useContext(StreamContext);
   return context; // Return null if not in provider, don't throw
 };
+
+function updateIncrementalMessage(prev: Message[], messageChunk: Message, metadata: any): Message[] {
+  // If no previous messages, start with the new chunk
+  if (!prev || prev.length === 0) {
+    return [messageChunk];
+  }
+
+  // Create a copy of the previous messages
+  const updatedMessages = [...prev];
+
+  // Find the last message from the assistant/AI
+  const lastMessageIndex = updatedMessages.findLastIndex(msg =>
+    msg.type === 'ai'
+  );
+
+  if (lastMessageIndex === -1) {
+    // No existing AI message, add the new chunk
+    return [...updatedMessages, messageChunk];
+  }
+
+  // Get the last AI message
+  const lastMessage = updatedMessages[lastMessageIndex];
+
+  // If the chunk has the same ID as the last message, it's an update
+  if (messageChunk.id && lastMessage.id === messageChunk.id) {
+    // Update the existing message with new content
+    updatedMessages[lastMessageIndex] = {
+      ...lastMessage,
+      content: messageChunk.content,
+      // Preserve other properties while updating with new chunk data
+      ...messageChunk,
+    };
+  } else {
+    // Different message ID or no ID, append the new chunk content to the last message
+    updatedMessages[lastMessageIndex] = {
+      ...lastMessage,
+      content: (lastMessage.content || '') + (messageChunk.content || ''),
+    };
+  }
+
+  return updatedMessages;
+}
+
+// Local state for managing messages during streaming
+const [localMessages, setLocalMessages] = useState<Message[]>([]);

@@ -19,7 +19,7 @@
     "@alpha.xone/langchat": "^0.0.16",
     "@expo/vector-icons": "^14.1.0",
     "@langchain/core": "^0.3.58",
-    "@langchain/langgraph-sdk": "^0.0.84",
+    "@langchain/langgraph-sdk": "^0.0.91",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-vector-icons/feather": "^12.0.1",
     "@react-native-vector-icons/fontawesome6": "^12.0.1",

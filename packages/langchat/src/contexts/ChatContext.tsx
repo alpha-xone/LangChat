@@ -66,7 +66,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       }
 
       console.log('Loaded threads:', data?.length || 0);
-      console.log('Thread data:', JSON.stringify(data, null, 2));
       setThreads(data || []);
     } catch (error) {
       console.error('Error in loadThreads:', error);

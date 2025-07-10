@@ -2,7 +2,7 @@ import { Message } from '@langchain/langgraph-sdk';
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useStreamContext } from '../context/Stream';
-import { useAuth } from '../contexts/SupabaseAuthContext'; // Add this import
+import { useAuth } from '../contexts/SupabaseAuthContext';
 import { generateMessageId } from '../lib/message-utils';
 
 interface UseRealChatHandlerProps {
@@ -12,7 +12,7 @@ interface UseRealChatHandlerProps {
 
 export const useRealChatHandler = ({ addMessage, chunkQueueRef }: UseRealChatHandlerProps) => {
   const streamContext = useStreamContext();
-  const { session } = useAuth(); // Get current session
+  const { session } = useAuth();
 
   const handleRealMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
@@ -30,7 +30,7 @@ export const useRealChatHandler = ({ addMessage, chunkQueueRef }: UseRealChatHan
 
     try {
       console.log('Sending message to LangGraph:', { text });
-      console.log('Stream context loading:', streamContext.isLoading);
+      console.log('Stream context threadId:', streamContext.threadId);
       console.log('Using access token:', session.access_token ? 'Present' : 'Missing');
 
       // Add user message immediately

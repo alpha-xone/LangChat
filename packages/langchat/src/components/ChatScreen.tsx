@@ -13,6 +13,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StreamProvider, useStreamContext } from '../context/Stream';
 import { ThemeProvider, useOptionalTheme, useTheme } from '../context/ThemeProvider';
+import { useChat } from '../contexts';
 import { useChatConfig } from '../hooks/useChatConfig';
 import { useDemoMessageHandler } from '../hooks/useDemoMessageHandler';
 import { useRealChatHandler } from '../hooks/useRealChatHandler';
@@ -74,7 +75,7 @@ function ChatInterface({
   onProfilePress
 }: ChatInterfaceProps) {
   const { theme } = useTheme();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [isDemoMode, setIsDemoMode] = useState(showDemo);
   const [isThreadsPanelVisible, setIsThreadsPanelVisible] = useState(false);
   const messagesRef = useRef<Message[]>([]);
@@ -86,6 +87,17 @@ function ChatInterface({
   // Get streaming context
   const streamContext = useStreamContext();
 
+  // Get chat context for Supabase integration
+  const {
+    selectThread,
+    createThread,
+    renameThread,
+    deleteThread,
+    currentThread,
+    messages: supabaseMessages,
+    isLoading: isSupabaseLoading
+  } = useChat?.() || {};
+
   // Force live mode if demo is disabled
   useEffect(() => {
     if (!showDemo) {
@@ -93,9 +105,53 @@ function ChatInterface({
     }
   }, [showDemo]);
 
+  // Sync Supabase messages when they change
+  useEffect(() => {
+    if (!isDemoMode && supabaseMessages) {
+      console.log(`Message sync: ${supabaseMessages.length} messages for thread ${currentThread?.id}`);
+
+      if (supabaseMessages.length > 0) {
+        // Convert Supabase messages to LangGraph message format
+        const convertedMessages = supabaseMessages.map(msg => {
+          let messageType: 'human' | 'ai' | 'system';
+          // Handle both Supabase role types and potential LangGraph message types
+          switch(msg.role as string) {
+            case 'user':
+            case 'human':
+              messageType = 'human';
+              break;
+            case 'assistant':
+            case 'ai':
+              messageType = 'ai';
+              break;
+            case 'system':
+              messageType = 'system';
+              break;
+            default:
+              messageType = 'ai';
+          }
+
+          const convertedMessage = {
+            id: msg.id,
+            type: messageType,
+            content: msg.content || '',
+            metadata: msg.metadata || {}
+          } as Message;
+
+          return convertedMessage;
+        });
+
+        setLocalMessages(convertedMessages);
+      } else {
+        // Clear messages if empty array
+        setLocalMessages([]);
+      }
+    }
+  }, [isDemoMode, supabaseMessages]);
+
   // Initialize message handlers
   const addMessage = useCallback((message: Message) => {
-    setMessages(prev => {
+    setLocalMessages(prev => {
       const existingIndex = prev.findIndex(m => m.id === message.id);
       if (existingIndex >= 0) {
         const newMessages = [...prev];
@@ -111,18 +167,18 @@ function ChatInterface({
 
   // Keep messages ref in sync
   useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+    messagesRef.current = localMessages;
+  }, [localMessages]);
 
   // Debounced message update function
   const debouncedUpdateMessages = useCallback(
     (newMessages: Message[]) => {
       const timeoutId = setTimeout(() => {
-        setMessages(newMessages);
+        setLocalMessages(newMessages);
       }, 50);
       return () => clearTimeout(timeoutId);
     },
-    [setMessages]
+    [setLocalMessages]
   );
 
   // Process streaming chunks from LangGraph
@@ -131,7 +187,7 @@ function ChatInterface({
       const { messageChunk, metadata } = processStreamChunk(chunkData);
 
       if (messageChunk) {
-        setMessages(prev => {
+        setLocalMessages(prev => {
           const updatedMessages = mergeStreamingMessage(prev, messageChunk, metadata);
           return updatedMessages;
         });
@@ -199,7 +255,7 @@ function ChatInterface({
   // Clear messages when switching modes
   useEffect(() => {
     if (isDemoMode) {
-      setMessages([]);
+      setLocalMessages([]);
       chunkQueueRef.current = [];
     }
   }, [isDemoMode]);
@@ -210,14 +266,26 @@ function ChatInterface({
 
     // If we're in live mode and don't have a thread, ensure one exists
     if (!showDemo || !isDemoMode) {
-      if (!streamContext?.threadId && streamContext?.ensureThread) {
+      // Check if we need to ensure a thread exists
+      // We need a thread if:
+      // 1. StreamContext doesn't have a threadId AND
+      // 2. We don't have a currentThread from Supabase
+      const hasStreamThread = !!streamContext?.threadId;
+      const hasSupabaseThread = !!currentThread?.id;
+
+      if (!hasStreamThread && !hasSupabaseThread && streamContext?.ensureThread) {
+        console.log('No thread available, creating new thread');
         await streamContext.ensureThread();
+      } else if (!hasStreamThread && hasSupabaseThread && streamContext?.switchToThread) {
+        console.log('Using existing Supabase thread:', currentThread.id);
+        await streamContext.switchToThread(currentThread.id);
       }
+
       await handleRealMessage(text);
     } else {
       await handleDemoMessage(text);
     }
-  }, [showDemo, isDemoMode, handleDemoMessage, handleRealMessage, streamContext]);
+  }, [showDemo, isDemoMode, handleDemoMessage, handleRealMessage, streamContext, currentThread]);
 
   const handleStopStreaming = useCallback(async () => {
     try {
@@ -236,96 +304,159 @@ function ChatInterface({
   const toggleMode = useCallback(() => {
     if (showDemo) {
       setIsDemoMode(prev => !prev);
-      setMessages([]);
+      setLocalMessages([]);
       chunkQueueRef.current = [];
     }
   }, [showDemo]);
-
   // Thread management handlers
   const handleSelectThread = useCallback(async (threadId: string) => {
     try {
-      if (streamContext?.switchToThread) {
-        await streamContext.switchToThread(threadId);
+      console.log(`Selecting thread: ${threadId}`);
 
-        // Load existing messages from the selected thread
-        if (streamContext?.loadThreadMessages) {
-          console.log('Attempting to load messages for thread:', threadId);
-          const threadMessages = await streamContext.loadThreadMessages(threadId);
-          if (threadMessages.length > 0) {
-            console.log('Successfully loaded', threadMessages.length, 'messages for thread:', threadId);
-            setMessages(threadMessages);
-          } else {
-            console.log('No existing messages found for thread:', threadId, '- starting with empty conversation');
-            setMessages([]); // Clear messages if thread is empty
-          }
-        } else {
-          console.log('loadThreadMessages not available, clearing messages');
-          setMessages([]); // Clear current messages when switching threads
-        }
+      // Clear existing messages to avoid showing wrong thread content
+      setLocalMessages([]);
 
-        chunkQueueRef.current = [];
+      // First select thread in Supabase (loads messages from DB)
+      if (selectThread) {
+        console.log('Selecting thread in Supabase:', threadId);
+        await selectThread(threadId);
       }
+
+      // Then synchronize with LangGraph for streaming
+      if (streamContext?.switchToThread) {
+        console.log('Switching LangGraph to thread:', threadId);
+        await streamContext.switchToThread(threadId);
+        console.log('LangGraph thread switch completed. Current stream threadId:', streamContext.threadId);
+
+        // Load existing messages from LangGraph if needed
+        if (streamContext?.loadThreadMessages) {
+          const threadMessages = await streamContext.loadThreadMessages(threadId);
+
+          if (threadMessages.length > 0 && (!supabaseMessages || supabaseMessages.length === 0)) {
+            console.log(`Using ${threadMessages.length} messages from LangGraph`);
+            setLocalMessages(threadMessages);
+          }
+        }
+      }
+
+      // Clear local state to avoid duplicates
+      chunkQueueRef.current = [];
     } catch (error) {
       console.error('Failed to switch to thread:', error);
       Alert.alert('Error', 'Failed to switch to thread');
     }
-  }, [streamContext]);
+  }, [selectThread, streamContext, supabaseMessages]);
 
   const handleCreateNewThread = useCallback(async () => {
     try {
-      if (streamContext?.createNewThread) {
+      // First create thread in Supabase
+      if (createThread) {
+        console.log('Creating new thread in Supabase');
+        const newThread = await createThread('');
+
+        if (newThread) {
+          console.log('Thread created in Supabase:', newThread.id);
+
+          // Then synchronize with LangGraph
+          if (streamContext?.switchToThread) {
+            console.log('Synchronizing with LangGraph');
+            await streamContext.switchToThread(newThread.id);
+          }
+
+          // Clear local state
+          setLocalMessages([]);
+          chunkQueueRef.current = [];
+        }
+      }
+      // Fall back to LangGraph only if Supabase integration not available
+      else if (streamContext?.createNewThread) {
+        console.log('Creating thread in LangGraph only (no Supabase)');
         await streamContext.createNewThread();
-        setMessages([]); // Clear messages for new thread
+        setLocalMessages([]);
         chunkQueueRef.current = [];
       }
     } catch (error) {
       console.error('Failed to create new thread:', error);
       Alert.alert('Error', 'Failed to create new thread');
     }
-  }, [streamContext]);
+  }, [createThread, streamContext]);
 
   const handleDeleteThread = useCallback(async (threadId: string) => {
     try {
+      // Delete thread in Supabase first
+      if (deleteThread) {
+        console.log('Deleting thread in Supabase:', threadId);
+        await deleteThread(threadId);
+      }
+
+      // Then delete in LangGraph if available
       if (streamContext?.deleteThread) {
+        console.log('Deleting thread in LangGraph:', threadId);
         await streamContext.deleteThread(threadId);
+      }
+
+      // If we deleted the current thread, clear messages
+      if (threadId === currentThread?.id || threadId === streamContext?.threadId) {
+        setLocalMessages([]);
+        chunkQueueRef.current = [];
       }
     } catch (error) {
       console.error('Failed to delete thread:', error);
       Alert.alert('Error', 'Failed to delete thread');
     }
-  }, [streamContext]);
+  }, [deleteThread, streamContext, currentThread]);
 
   const handleRenameThread = useCallback(async (threadId: string, newTitle: string) => {
     try {
+      // Update in Supabase first
+      if (renameThread) {
+        console.log('Renaming thread in Supabase:', threadId, 'to', newTitle);
+        await renameThread(threadId, newTitle);
+      }
+
+      // Then update in LangGraph if available
       if (streamContext?.renameThread) {
+        console.log('Renaming thread in LangGraph:', threadId, 'to', newTitle);
         await streamContext.renameThread(threadId, newTitle);
       }
     } catch (error) {
       console.error('Failed to rename thread:', error);
       Alert.alert('Error', 'Failed to rename thread');
     }
-  }, [streamContext]);
+  }, [renameThread, streamContext]);
 
   const handleBatchDeleteThreads = useCallback(async (threadIds: string[]) => {
     try {
-      if (streamContext?.batchDeleteThreads) {
-        await streamContext.batchDeleteThreads(threadIds);
-        // If we deleted the current thread, clear messages
-        if (threadIds.includes(streamContext?.threadId || '')) {
-          setMessages([]);
-          chunkQueueRef.current = [];
+      // Delete threads one by one in Supabase
+      if (deleteThread) {
+        console.log('Batch deleting threads in Supabase:', threadIds);
+        for (const threadId of threadIds) {
+          await deleteThread(threadId);
         }
+      }
+
+      // Then delete in LangGraph if available
+      if (streamContext?.batchDeleteThreads) {
+        console.log('Batch deleting threads in LangGraph:', threadIds);
+        await streamContext.batchDeleteThreads(threadIds);
+      }
+
+      // If we deleted the current thread, clear messages
+      const currentThreadId = currentThread?.id || streamContext?.threadId;
+      if (currentThreadId && threadIds.includes(currentThreadId)) {
+        setLocalMessages([]);
+        chunkQueueRef.current = [];
       }
     } catch (error) {
       console.error('Failed to batch delete threads:', error);
       Alert.alert('Error', 'Failed to batch delete threads');
     }
-  }, [streamContext]);
+  }, [deleteThread, streamContext, currentThread]);
   // Message deletion handlers
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     try {
       // Find and store the message for undo
-      const messageToDelete = messages.find(m => m.id === messageId);
+      const messageToDelete = localMessages.find(m => m.id === messageId);
       if (messageToDelete) {
         setDeletedMessages(prev => [...prev, { message: messageToDelete, timestamp: Date.now() }]);
         setShowUndoToast(true);
@@ -335,7 +466,7 @@ function ChatInterface({
       }
 
       // Remove message from local state
-      setMessages(prev => prev.filter(m => m.id !== messageId));
+      setLocalMessages(prev => prev.filter(m => m.id !== messageId));
 
       // TODO: If LangGraph supports individual message deletion, add server sync here
       // Example: await streamContext?.deleteMessage?.(messageId);
@@ -344,12 +475,12 @@ function ChatInterface({
       console.error('Failed to delete message:', error);
       Alert.alert('Error', 'Failed to delete message');
     }
-  }, [messages]);
+  }, [localMessages]);
 
   const handleBatchDeleteMessages = useCallback(async (messageIds: string[]) => {
     try {
       // Find and store the messages for undo
-      const messagesToDelete = messages.filter(m => messageIds.includes(m.id || ''));
+      const messagesToDelete = localMessages.filter(m => messageIds.includes(m.id || ''));
       if (messagesToDelete.length > 0) {
         setDeletedMessages(prev => [
           ...prev,
@@ -362,7 +493,7 @@ function ChatInterface({
       }
 
       // Remove messages from local state
-      setMessages(prev => prev.filter(m => !messageIds.includes(m.id || '')));
+      setLocalMessages(prev => prev.filter(m => !messageIds.includes(m.id || '')));
 
       // TODO: If LangGraph supports batch message deletion, add server sync here
       // Example: await streamContext?.batchDeleteMessages?.(messageIds);
@@ -371,7 +502,7 @@ function ChatInterface({
       console.error('Failed to batch delete messages:', error);
       Alert.alert('Error', 'Failed to batch delete messages');
     }
-  }, [messages]);
+  }, [localMessages]);
 
   // Undo functionality for deleted messages
   const [deletedMessages, setDeletedMessages] = useState<{message: Message, timestamp: number}[]>([]);
@@ -390,7 +521,7 @@ function ChatInterface({
   const handleUndoDelete = useCallback(() => {
     const lastDeleted = deletedMessages[deletedMessages.length - 1];
     if (lastDeleted) {
-      setMessages(prev => [...prev, lastDeleted.message].sort((a, b) => {
+      setLocalMessages(prev => [...prev, lastDeleted.message].sort((a, b) => {
         // Sort by message creation time if available, otherwise by ID
         const aTime = (a as any).created_at || a.id || '';
         const bTime = (b as any).created_at || b.id || '';
@@ -434,8 +565,8 @@ function ChatInterface({
       return () => document.removeEventListener('keydown', handleKeyPress);
     }
   }, [isMessageSelectionMode]);
-
   const isStreaming = (showDemo && isDemoMode) ? false : (streamContext?.isLoading ?? false);
+  const isLoading = isSupabaseLoading || isStreaming;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -532,8 +663,8 @@ function ChatInterface({
           )}
         </View>
         <MessageList
-          messages={messages}
-          isLoading={isStreaming}
+          messages={localMessages}
+          isLoading={isLoading}
           theme={theme}
           showAIBubble={showAIBubble}
           showToolMessages={showToolMessages}
@@ -543,7 +674,7 @@ function ChatInterface({
           onSelectionModeChange={setIsMessageSelectionMode}
           triggerSelectionMode={triggerMessageSelection}
           ListHeaderComponent={
-            (showDemo && messages.length === 0) ? (
+            (showDemo && localMessages.length === 0) ? (
               <StreamingDemo
                 onAddMessage={addMessage}
                 isStreaming={isStreaming}
@@ -552,6 +683,41 @@ function ChatInterface({
                 currentMode={isDemoMode ? 'demo' : 'live'}
                 theme={theme}
               />
+            ) : localMessages.length === 0 && !isLoading ? (
+              // Debug component to show thread status
+              <View style={{ padding: 16, alignItems: 'center' }}>
+                <Text style={{ color: theme.text, marginBottom: 8, fontWeight: 'bold' }}>
+                  Thread Debug Info
+                </Text>
+                <Text style={{ color: theme.text, marginBottom: 4 }}>
+                  {currentThread ? `Thread ID: ${currentThread.id.slice(0, 8)}...` : 'No thread selected'}
+                </Text>
+                <Text style={{ color: theme.text, marginBottom: 4 }}>
+                  Supabase messages: {supabaseMessages ? supabaseMessages.length : 'None'}
+                </Text>
+                <Text style={{ color: theme.text, marginBottom: 4 }}>
+                  Local messages: {localMessages.length}
+                </Text>
+                <Text style={{ color: theme.text, marginBottom: 4 }}>
+                  Loading state: {isLoading ? 'Loading' : 'Not loading'}
+                </Text>
+                {currentThread && (
+                  <TouchableOpacity
+                    style={{
+                      marginTop: 12,
+                      paddingVertical: 8,
+                      paddingHorizontal: 16,
+                      backgroundColor: theme.primary,
+                      borderRadius: 8,
+                    }}
+                    onPress={() => handleSelectThread(currentThread.id)}
+                  >
+                    <Text style={{ color: theme.background, fontWeight: 'bold' }}>
+                      Reload Thread
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             ) : null
           }
         />
@@ -559,10 +725,10 @@ function ChatInterface({
           onSendMessage={handleSendMessage}
           onStopStreaming={handleStopStreaming}
           disabled={false}
-          isStreaming={isStreaming}
+          isStreaming={isLoading}
           theme={theme}
           placeholder={
-            isStreaming
+            isLoading
               ? "AI is responding..."
               : (showDemo && isDemoMode)
                 ? "Type a message (Demo mode)..."
@@ -576,7 +742,7 @@ function ChatInterface({
             visible={isThreadsPanelVisible}
             onClose={() => setIsThreadsPanelVisible(false)}
             theme={theme}
-            currentThreadId={streamContext?.threadId}
+            currentThreadId={currentThread?.id || streamContext?.threadId}
             onSelectThread={handleSelectThread}
             onCreateThread={handleCreateNewThread}
             onDeleteThread={handleDeleteThread}
@@ -587,7 +753,7 @@ function ChatInterface({
         )}
 
         {/* Floating Message Management Button */}
-        {messages.length > 0 && !isMessageSelectionMode && (
+        {localMessages.length > 0 && !isMessageSelectionMode && (
           <TouchableOpacity
             style={{
               position: 'absolute',
