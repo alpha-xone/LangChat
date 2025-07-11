@@ -170,10 +170,13 @@ interface ThemeStore {
   mode: ThemeMode;
   theme: Theme;
   customThemes: Record<string, Theme>;
+  isUsingCustomTheme: boolean;
+  activeCustomTheme: string | null;
   setMode: (mode: ThemeMode) => void;
   setCustomTheme: (name: string, theme: Theme) => void;
   useCustomTheme: (name: string) => void;
   resetToDefault: () => void;
+  forceSystemThemeUpdate: () => void;
 }
 
 // Create theme store
@@ -183,11 +186,25 @@ export const useThemeStore = create<ThemeStore>()(
       mode: 'system',
       theme: resolveTheme('system', {}), // Resolve initial system theme
       customThemes: {},
+      isUsingCustomTheme: false,
+      activeCustomTheme: null,
 
       setMode: (mode: ThemeMode) => {
-        const resolvedTheme = resolveTheme(mode, get().customThemes);
+        const state = get();
+        // If we're using a custom theme, apply it over the new base mode
+        if (state.isUsingCustomTheme && state.activeCustomTheme) {
+          const customTheme = state.customThemes[state.activeCustomTheme];
+          if (customTheme) {
+            console.log('Setting mode with custom theme:', mode, 'custom:', state.activeCustomTheme);
+            set({ mode, theme: customTheme });
+            return;
+          }
+        }
+
+        // Otherwise use the resolved base theme
+        const resolvedTheme = resolveTheme(mode, {});
         console.log('Setting theme mode:', mode, 'resolved to:', resolvedTheme.isDark ? 'dark' : 'light');
-        set({ mode, theme: resolvedTheme });
+        set({ mode, theme: resolvedTheme, isUsingCustomTheme: false, activeCustomTheme: null });
       },
 
       setCustomTheme: (name: string, theme: Theme) => {
@@ -202,14 +219,34 @@ export const useThemeStore = create<ThemeStore>()(
       useCustomTheme: (name: string) => {
         const customTheme = get().customThemes[name];
         if (customTheme) {
-          set({ theme: customTheme });
+          console.log('Using custom theme:', name);
+          set({ theme: customTheme, isUsingCustomTheme: true, activeCustomTheme: name });
         }
       },
 
       resetToDefault: () => {
         const mode = get().mode;
         const resolvedTheme = resolveTheme(mode, {});
-        set({ theme: resolvedTheme, customThemes: {} });
+        console.log('Resetting to default theme for mode:', mode);
+        set({
+          theme: resolvedTheme,
+          isUsingCustomTheme: false,
+          activeCustomTheme: null,
+          // Don't reset customThemes, just stop using them
+        });
+      },
+
+      forceSystemThemeUpdate: () => {
+        const state = get();
+        if (state.mode === 'system') {
+          const resolvedTheme = resolveTheme('system', {});
+          console.log('Force updating system theme:', resolvedTheme.isDark ? 'dark' : 'light');
+
+          // If we're using a custom theme, keep it but don't update base theme
+          if (!state.isUsingCustomTheme) {
+            set({ theme: resolvedTheme });
+          }
+        }
       },
     }),
     {
@@ -218,13 +255,30 @@ export const useThemeStore = create<ThemeStore>()(
       partialize: (state) => ({
         mode: state.mode,
         customThemes: state.customThemes,
+        isUsingCustomTheme: state.isUsingCustomTheme,
+        activeCustomTheme: state.activeCustomTheme,
       }),
       onRehydrateStorage: () => (state) => {
-        // After rehydration, ensure system theme is properly resolved
-        if (state?.mode === 'system') {
-          const resolvedTheme = resolveTheme('system', state.customThemes);
-          console.log('Rehydrating system theme:', resolvedTheme.isDark ? 'dark' : 'light');
-          state.theme = resolvedTheme;
+        // After rehydration, ensure theme is properly resolved
+        if (state) {
+          if (state.isUsingCustomTheme && state.activeCustomTheme) {
+            // Restore custom theme
+            const customTheme = state.customThemes[state.activeCustomTheme];
+            if (customTheme) {
+              console.log('Rehydrating custom theme:', state.activeCustomTheme);
+              state.theme = customTheme;
+            } else {
+              // Custom theme not found, fall back to base theme
+              state.isUsingCustomTheme = false;
+              state.activeCustomTheme = null;
+              state.theme = resolveTheme(state.mode, {});
+            }
+          } else {
+            // Restore base theme
+            const resolvedTheme = resolveTheme(state.mode, {});
+            console.log('Rehydrating base theme:', state.mode, '→', resolvedTheme.isDark ? 'dark' : 'light');
+            state.theme = resolvedTheme;
+          }
         }
       },
     }
@@ -236,11 +290,11 @@ export function resolveTheme(mode: ThemeMode, _customThemes: Record<string, Them
   if (mode === 'system') {
     const colorScheme = Appearance.getColorScheme();
     const resolvedTheme = colorScheme === 'dark' ? darkTheme : lightTheme;
-    console.log(`[Theme] System mode resolved: colorScheme=${colorScheme}, isDark=${resolvedTheme.isDark}`);
+    console.log(`[Theme] System mode resolved: colorScheme=${colorScheme}, isDark=${resolvedTheme.isDark}, background=${resolvedTheme.colors.background}`);
     return resolvedTheme;
   }
   const resolvedTheme = mode === 'dark' ? darkTheme : lightTheme;
-  console.log(`[Theme] Mode resolved: mode=${mode}, isDark=${resolvedTheme.isDark}`);
+  console.log(`[Theme] Mode resolved: mode=${mode}, isDark=${resolvedTheme.isDark}, background=${resolvedTheme.colors.background}`);
   return resolvedTheme;
 }
 

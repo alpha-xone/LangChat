@@ -59,7 +59,17 @@ function AuthenticationFlow() {
 function MainApp({ user }: { user: any }) {
   const [showDemo, setShowDemo] = useState(false);
   const [systemAppearance, setSystemAppearance] = useState(Appearance.getColorScheme());
-  const { theme, mode, setMode, setCustomTheme, useCustomTheme } = useAppTheme();
+  const { signOut } = useAuthContext();
+  const {
+    theme,
+    mode,
+    isUsingCustomTheme,
+    activeCustomTheme,
+    setMode,
+    setCustomTheme,
+    useCustomTheme,
+    resetToDefault
+  } = useAppTheme();
 
   // Monitor system appearance changes for debugging
   useEffect(() => {
@@ -76,15 +86,35 @@ function MainApp({ user }: { user: any }) {
   }
 
   const handleSignOut = async () => {
-    // This will be handled by the auth context
-    console.log('Signing out...');
+    try {
+      console.log('Signing out...');
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   // Demo: Create a vibrant custom theme
-  const handleUseVibrantTheme = () => {
-    const vibrantTheme = themes.vibrant;
-    setCustomTheme('vibrant', vibrantTheme);
-    useCustomTheme('vibrant');
+  const handleToggleVibrantTheme = () => {
+    const isVibrantActive = isUsingCustomTheme && activeCustomTheme === 'vibrant';
+
+    if (isVibrantActive) {
+      // Reset to default theme
+      resetToDefault();
+    } else {
+      // Apply vibrant theme
+      const vibrantTheme = themes.vibrant;
+      setCustomTheme('vibrant', vibrantTheme);
+      useCustomTheme('vibrant');
+    }
+  };
+
+  // Cycle through theme modes: light -> dark -> system -> light
+  const handleCycleThemeMode = () => {
+    const modes = ['light', 'dark', 'system'] as const;
+    const currentIndex = modes.indexOf(mode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setMode(modes[nextIndex]);
   };
 
   const getThemeModeLabel = (mode: string) => {
@@ -104,54 +134,44 @@ function MainApp({ user }: { user: any }) {
         <Text style={[styles.userInfo, { color: theme.colors.primary }]}>Hello, {user.name || 'User'}!</Text>
         <Text style={[styles.emailText, { color: theme.colors.textSecondary }]}>{user.email}</Text>
 
-        {/* Theme Selector */}
-        <View style={styles.themeSelector}>
-          <Text style={[styles.themeSelectorLabel, { color: theme.colors.text }]}>Theme:</Text>
-          <View style={styles.themeOptions}>
-            {(['light', 'dark', 'system'] as const).map((themeMode) => (
-              <TouchableOpacity
-                key={themeMode}
-                style={[
-                  styles.themeOption,
-                  {
-                    backgroundColor: mode === themeMode ? theme.colors.primary : 'transparent',
-                    borderColor: theme.colors.border
-                  }
-                ]}
-                onPress={() => setMode(themeMode)}
-              >
-                <Text style={[
-                  styles.themeOptionText,
-                  {
-                    color: mode === themeMode ? theme.colors.background : theme.colors.text,
-                    fontSize: 12
-                  }
-                ]}>
-                  {getThemeModeLabel(themeMode)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Theme Controls */}
+        <View style={[styles.themeSettings, { backgroundColor: theme.colors.surface }]}>
+          {/* Base Theme Setting */}
+          <TouchableOpacity
+            style={[styles.settingRow, { borderBottomColor: theme.colors.border }]}
+            onPress={handleCycleThemeMode}
+          >
+            <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Theme</Text>
+            <View style={[styles.modeToggle, {
+              backgroundColor: theme.colors.background,
+              borderColor: theme.colors.border
+            }]}>
+              <Text style={[styles.modeToggleText, { color: theme.colors.primary }]}>
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-        {/* Current Theme Status */}
-        <View style={styles.themeStatus}>
-          <Text style={[styles.themeStatusText, { color: theme.colors.textSecondary }]}>
-            Active: {getThemeModeLabel(mode)} {mode === 'system' ? `(${theme.isDark ? 'Dark' : 'Light'})` : ''}
-          </Text>
-          <Text style={[styles.themeStatusText, { color: theme.colors.textSecondary, fontSize: 10 }]}>
-            System: {systemAppearance || 'unknown'}
-          </Text>
+          {/* Vibrant Theme Setting */}
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={handleToggleVibrantTheme}
+          >
+            <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Vibrant</Text>
+            <View style={[styles.toggleSwitch, {
+              backgroundColor: (isUsingCustomTheme && activeCustomTheme === 'vibrant') ? theme.colors.primary : theme.colors.border,
+            }]}>
+              <View style={[styles.toggleKnob, {
+                backgroundColor: theme.colors.background,
+                transform: [{ translateX: (isUsingCustomTheme && activeCustomTheme === 'vibrant') ? 22 : 2 }]
+              }]} />
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Content */}
       <View style={styles.content}>
-        <Text style={[styles.description, { color: theme.colors.text }]}>
-          You have successfully authenticated with the LangChat package.
-          This example demonstrates the authentication system integration with theming support.
-        </Text>
-
         <View style={[styles.features, { backgroundColor: theme.colors.surface }]}>
           <Text style={[styles.featuresTitle, { color: theme.colors.text }]}>Available Features:</Text>
           <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ User Registration</Text>
@@ -173,15 +193,6 @@ function MainApp({ user }: { user: any }) {
             Explore Auth Features
           </Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.customThemeButton, { backgroundColor: theme.colors.secondary || theme.colors.primary, opacity: 0.8 }]}
-          onPress={handleUseVibrantTheme}
-        >
-          <Text style={[styles.customThemeButtonText, { color: theme.colors.background }]}>
-            Try Vibrant Theme 🎨
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* Footer */}
@@ -200,6 +211,7 @@ function MainApp({ user }: { user: any }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop: 60,
   },
   loadingContainer: {
     flex: 1,
@@ -229,45 +241,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
   },
-  themeSelector: {
-    marginBottom: 12,
-    alignItems: 'center',
+  themeSettings: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    width: '100%',
   },
-  themeSelectorLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  themeOptions: {
+  settingRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 56,
   },
-  themeOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  settingTitle: {
+    fontSize: 17,
+    fontWeight: '400',
+    textAlign: 'left',
+  },
+  modeToggle: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
-    minWidth: 60,
+    minWidth: 80,
     alignItems: 'center',
   },
-  themeOptionText: {
-    fontSize: 12,
+  modeToggleText: {
+    fontSize: 15,
     fontWeight: '500',
   },
-  themeStatus: {
-    marginTop: 8,
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    position: 'relative',
   },
-  themeStatusText: {
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  themeToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  themeLabel: {
-    fontSize: 16,
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    position: 'absolute',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   content: {
     flex: 1,
@@ -307,15 +330,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   demoButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  customThemeButton: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  customThemeButtonText: {
     fontSize: 16,
     fontWeight: '500',
   },

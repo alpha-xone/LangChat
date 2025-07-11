@@ -6,6 +6,8 @@ export interface UseAppThemeReturn {
   theme: Theme;
   mode: ThemeMode;
   isDark: boolean;
+  isUsingCustomTheme: boolean;
+  activeCustomTheme: string | null;
   setMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
   setCustomTheme: (name: string, theme: Theme) => void;
@@ -26,35 +28,40 @@ export const useAppTheme = (): UseAppThemeReturn => {
   const {
     mode,
     theme,
+    isUsingCustomTheme,
+    activeCustomTheme,
     setMode,
     setCustomTheme,
     useCustomTheme,
     resetToDefault,
+    forceSystemThemeUpdate,
   } = useThemeStore();
 
   // Ensure theme is properly initialized on app start
   useEffect(() => {
+    // Always do an initial system theme check when the hook first mounts
+    const currentSystemScheme = Appearance.getColorScheme();
+    console.log('[useAppTheme] Initial system appearance:', currentSystemScheme, 'mode:', mode);
+
     if (mode === 'system') {
-      // Re-resolve the system theme on initialization
-      setMode('system');
+      // Force an update to ensure we have the correct system theme
+      forceSystemThemeUpdate();
     }
   }, []); // Run only once on mount
 
   // Update theme when system appearance changes
   useEffect(() => {
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      console.log('[useAppTheme] Appearance changed to:', colorScheme, 'current mode:', mode);
+      console.log('[useAppTheme] System appearance changed to:', colorScheme, 'current mode:', mode);
       if (mode === 'system') {
-        // Small delay to ensure the system has updated
-        setTimeout(() => {
-          console.log('[useAppTheme] Triggering system theme re-resolution');
-          setMode('system');
-        }, 100);
+        // Use the new force update function to properly handle system theme changes
+        console.log('[useAppTheme] Triggering system theme update');
+        forceSystemThemeUpdate();
       }
     });
 
     return () => subscription?.remove();
-  }, [mode, setMode]);
+  }, [mode, forceSystemThemeUpdate]);
 
   // Toggle function for convenient light/dark switching
   const toggleTheme = () => {
@@ -66,6 +73,8 @@ export const useAppTheme = (): UseAppThemeReturn => {
     theme,
     mode,
     isDark: theme.isDark,
+    isUsingCustomTheme,
+    activeCustomTheme,
     setMode,
     toggleTheme,
     setCustomTheme,
