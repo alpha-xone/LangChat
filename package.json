@@ -84,8 +84,11 @@
     "react-native": "*"
   },
   "dependencies": {
+    "@langchain/langgraph-sdk": "^0.0.92",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@supabase/supabase-js": "^2.50.4",
+    "lucide": "^0.525.0",
+    "lucide-react-native": "^0.525.0",
     "zustand": "^5.0.6"
   },
   "workspaces": [

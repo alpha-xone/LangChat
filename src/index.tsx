@@ -5,6 +5,34 @@ export * from './data/AuthService';
 export * from './data/supabase';
 export * from './types';
 
+// AI Integration system - explicit exports to avoid naming conflicts
+export {
+  LangGraphClient,
+  createLangGraphClient,
+  StreamParser,
+  createStreamParser,
+  createLoggingStreamParser,
+  useLangGraph,
+  useLangGraphSimple,
+  SimpleChat,
+  SimpleIcon,
+  LangGraphDemo,
+  type LangGraphConfig,
+  type StreamingResponse,
+  type ThreadCreationResult,
+  type ParsedMessage,
+  type StreamParserEvents,
+  type LangGraphHookConfig,
+  type LangGraphState,
+  type LangGraphActions,
+  type UseLangGraphReturn,
+  type SimpleChatProps,
+  type SimpleIconProps,
+  type LangGraphDemoProps,
+} from './ai';
+// Note: ChatMessage from AI is aliased to avoid conflict with types/ChatMessage
+export { type ChatMessage as LangGraphChatMessage } from './ai';
+
 // Theming system
 export {
   ThemeProvider,

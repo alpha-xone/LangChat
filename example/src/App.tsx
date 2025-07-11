@@ -3,6 +3,7 @@ import { Text, View, StyleSheet, ActivityIndicator, StatusBar, TouchableOpacity 
 import { AuthProvider, AuthNavigator, useAuthContext, ThemeProvider, useAppTheme, themes } from 'langchat';
 import { Appearance } from 'react-native';
 import { DemoScreen } from './DemoScreen';
+import { LangGraphExample } from './LangGraphExample';
 
 // Main App Component
 export default function App() {
@@ -58,32 +59,9 @@ function AuthenticationFlow() {
 // Main App Component (for authenticated users)
 function MainApp({ user }: { user: any }) {
   const [showDemo, setShowDemo] = useState(false);
-  const [systemAppearance, setSystemAppearance] = useState(Appearance.getColorScheme());
+  const [showLangGraph, setShowLangGraph] = useState(true); // Start with LangGraph example
   const { signOut } = useAuthContext();
-  const {
-    theme,
-    mode,
-    isUsingCustomTheme,
-    activeCustomTheme,
-    setMode,
-    setCustomTheme,
-    useCustomTheme,
-    resetToDefault
-  } = useAppTheme();
-
-  // Monitor system appearance changes for debugging
-  useEffect(() => {
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      console.log('[MainApp] System appearance changed to:', colorScheme);
-      setSystemAppearance(colorScheme);
-    });
-
-    return () => subscription?.remove();
-  }, []);
-
-  if (showDemo) {
-    return <DemoScreen onBack={() => setShowDemo(false)} />;
-  }
+  const { theme } = useAppTheme();
 
   const handleSignOut = async () => {
     try {
@@ -94,38 +72,21 @@ function MainApp({ user }: { user: any }) {
     }
   };
 
-  // Demo: Create a vibrant custom theme
-  const handleToggleVibrantTheme = () => {
-    const isVibrantActive = isUsingCustomTheme && activeCustomTheme === 'vibrant';
+  // Show LangGraph example by default after login
+  if (showLangGraph) {
+    return (
+      <LangGraphExample
+        onBack={() => setShowLangGraph(false)}
+      />
+    );
+  }
 
-    if (isVibrantActive) {
-      // Reset to default theme
-      resetToDefault();
-    } else {
-      // Apply vibrant theme
-      const vibrantTheme = themes.vibrant;
-      setCustomTheme('vibrant', vibrantTheme);
-      useCustomTheme('vibrant');
-    }
-  };
+  // Show demo screen
+  if (showDemo) {
+    return <DemoScreen onBack={() => setShowDemo(false)} />;
+  }
 
-  // Cycle through theme modes: light -> dark -> system -> light
-  const handleCycleThemeMode = () => {
-    const modes = ['light', 'dark', 'system'] as const;
-    const currentIndex = modes.indexOf(mode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    setMode(modes[nextIndex]);
-  };
-
-  const getThemeModeLabel = (mode: string) => {
-    switch (mode) {
-      case 'light': return '☀️ Light';
-      case 'dark': return '🌙 Dark';
-      case 'system': return '📱 System';
-      default: return mode;
-    }
-  };
-
+  // Original main app (now as fallback/menu)
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
@@ -133,64 +94,33 @@ function MainApp({ user }: { user: any }) {
         <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Welcome to LangChat!</Text>
         <Text style={[styles.userInfo, { color: theme.colors.primary }]}>Hello, {user.name || 'User'}!</Text>
         <Text style={[styles.emailText, { color: theme.colors.textSecondary }]}>{user.email}</Text>
-
-        {/* Theme Controls */}
-        <View style={[styles.themeSettings, { backgroundColor: theme.colors.surface }]}>
-          {/* Base Theme Setting */}
-          <TouchableOpacity
-            style={[styles.settingRow, { borderBottomColor: theme.colors.border }]}
-            onPress={handleCycleThemeMode}
-          >
-            <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Theme</Text>
-            <View style={[styles.modeToggle, {
-              backgroundColor: theme.colors.background,
-              borderColor: theme.colors.border
-            }]}>
-              <Text style={[styles.modeToggleText, { color: theme.colors.primary }]}>
-                {mode.charAt(0).toUpperCase() + mode.slice(1)}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Vibrant Theme Setting */}
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={handleToggleVibrantTheme}
-          >
-            <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Vibrant</Text>
-            <View style={[styles.toggleSwitch, {
-              backgroundColor: (isUsingCustomTheme && activeCustomTheme === 'vibrant') ? theme.colors.primary : theme.colors.border,
-            }]}>
-              <View style={[styles.toggleKnob, {
-                backgroundColor: theme.colors.background,
-                transform: [{ translateX: (isUsingCustomTheme && activeCustomTheme === 'vibrant') ? 22 : 2 }]
-              }]} />
-            </View>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Content */}
       <View style={styles.content}>
         <View style={[styles.features, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.featuresTitle, { color: theme.colors.text }]}>Available Features:</Text>
-          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ User Registration</Text>
-          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ User Login</Text>
-          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ Password Reset</Text>
-          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ Light/Dark/System Theme Support</Text>
-          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ Automatic System Theme Detection</Text>
+          <Text style={[styles.featuresTitle, { color: theme.colors.text }]}>Available Examples:</Text>
+          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ User Authentication</Text>
+          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ Theme System</Text>
+          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ LangGraph AI Integration</Text>
+          <Text style={[styles.featureItem, { color: theme.colors.text }]}>✓ Streaming Chat Interface</Text>
         </View>
-
-        <Text style={[styles.nextSteps, { color: theme.colors.textSecondary }]}>
-          Next steps: Integrate chat functionality, file uploads, and AI interactions.
-        </Text>
 
         <TouchableOpacity
           style={[styles.demoButton, { backgroundColor: theme.colors.primary }]}
+          onPress={() => setShowLangGraph(true)}
+        >
+          <Text style={[styles.demoButtonText, { color: theme.colors.background }]}>
+            🤖 LangGraph AI Chat
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.demoButton, { backgroundColor: theme.colors.secondary }]}
           onPress={() => setShowDemo(true)}
         >
           <Text style={[styles.demoButtonText, { color: theme.colors.background }]}>
-            Explore Auth Features
+            🔐 Auth Features Demo
           </Text>
         </TouchableOpacity>
       </View>
