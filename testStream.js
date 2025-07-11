@@ -43,9 +43,6 @@ async function testStreaming() {
         if (contentText && contentText.trim() !== "") {
           console.log('[LangGraphClient] Chunk content:', contentText);
         }
-        // if (messageChunk.content && messageChunk.content.trim() !== "") {
-        //   console.log("Chunk content:", messageChunk.content);
-        // }
       }
     } else {
       // console.log("Other event:", chunk.event, chunk.data);

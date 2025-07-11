@@ -161,9 +161,9 @@ export class LangGraphClient {
       );
 
       for await (const chunk of streamResponse) {
-        console.log(chunk.data);
         if (chunk.event === "messages/partial") {
           for (const messageChunk of chunk.data) {
+            console.log(messageChunk);
             const contentText = typeof messageChunk.content === 'string'
               ? messageChunk.content
               : Array.isArray(messageChunk.content)
@@ -181,8 +181,6 @@ export class LangGraphClient {
               };
             }
           }
-        } else {
-          // console.log('[LangGraphClient] Other event:', chunk.event, chunk.data);
         }
       }
 
