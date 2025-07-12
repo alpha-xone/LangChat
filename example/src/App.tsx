@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, ActivityIndicator, StatusBar, TouchableOpacity } from 'react-native';
-import { AuthProvider, AuthNavigator, useAuthContext, ThemeProvider, useAppTheme, themes } from 'langchat';
+import { AuthProvider, AuthNavigator, useAuthContext, ThemeProvider, useAppTheme, themes, ChatScreen, type LangGraphConfig, AuthService, LangGraphClient } from 'langchat';
 import { Appearance } from 'react-native';
 import { DemoScreen } from './DemoScreen';
 
@@ -58,6 +58,7 @@ function AuthenticationFlow() {
 // Main App Component (for authenticated users)
 function MainApp({ user }: { user: any }) {
   const [showDemo, setShowDemo] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [systemAppearance, setSystemAppearance] = useState(Appearance.getColorScheme());
   const { signOut } = useAuthContext();
   const {
@@ -83,6 +84,10 @@ function MainApp({ user }: { user: any }) {
 
   if (showDemo) {
     return <DemoScreen onBack={() => setShowDemo(false)} />;
+  }
+
+  if (showChat) {
+    return <LangGraphChatDemo onBack={() => setShowChat(false)} />;
   }
 
   const handleSignOut = async () => {
@@ -191,6 +196,15 @@ function MainApp({ user }: { user: any }) {
         >
           <Text style={[styles.demoButtonText, { color: theme.colors.background }]}>
             Explore Auth Features
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.demoButton, { backgroundColor: theme.colors.secondary || theme.colors.primary, marginTop: 12 }]}
+          onPress={() => setShowChat(true)}
+        >
+          <Text style={[styles.demoButtonText, { color: theme.colors.background }]}>
+            Test LangGraph Chat
           </Text>
         </TouchableOpacity>
       </View>
@@ -347,5 +361,217 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     padding: 12,
     textAlign: 'center',
+  },
+});
+
+// LangGraph Chat Demo Component
+function LangGraphChatDemo({ onBack }: { onBack: () => void }) {
+  const { theme } = useAppTheme();
+  const [sessionInfo, setSessionInfo] = useState<{
+    hasToken: boolean;
+    tokenPreview?: string;
+    userId?: string;
+  } | null>(null);
+
+  // LangGraph configuration - replace with your actual values
+  const langGraphConfig: LangGraphConfig = {
+    apiUrl: process.env.EXPO_PUBLIC_LANGGRAPH_API_URL || "https://your-deployment-url",
+    assistantId: process.env.EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID || "agent",
+    defaultHeaders: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  const handleThreadCreated = (threadId: string) => {
+    console.log('New LangGraph thread created:', threadId);
+  };
+
+  const handleError = (error: string) => {
+    console.error('LangGraph chat error:', error);
+    // You can add user-friendly error handling here
+  };
+
+  // Check if configuration is placeholder values
+  const isConfigured = langGraphConfig.apiUrl !== "https://your-deployment-url";
+
+  // Get session info for debugging
+  useEffect(() => {
+    const getSessionInfo = async () => {
+      try {
+        // This is just for demonstration - in real usage you don't need to show this
+        const authService = new AuthService();
+        const client = new LangGraphClient(langGraphConfig, authService);
+        const info = await client.getSessionInfo();
+        setSessionInfo(info);
+      } catch (error) {
+        console.log('Could not get session info:', error);
+      }
+    };
+    getSessionInfo();
+  }, []);
+
+  return (
+    <View style={[chatStyles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header */}
+      <View style={[chatStyles.chatHeader, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={[chatStyles.backButton, { backgroundColor: theme.colors.background }]}
+        >
+          <Text style={[chatStyles.backButtonText, { color: theme.colors.primary }]}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={[chatStyles.chatTitle, { color: theme.colors.text }]}>LangGraph Chat Demo</Text>
+      </View>
+
+      {/* Configuration Warning or Chat Interface */}
+      <View style={chatStyles.chatContainer}>
+        {!isConfigured ? (
+          <View style={[chatStyles.configWarning, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[chatStyles.configWarningTitle, { color: theme.colors.text }]}>⚠️ Configuration Required</Text>
+            <Text style={[chatStyles.configWarningText, { color: theme.colors.textSecondary }]}>
+              To use LangGraph chat, please configure your environment variables:
+            </Text>
+            <Text style={[chatStyles.configCode, { color: theme.colors.primary, backgroundColor: theme.colors.background }]}>
+              EXPO_PUBLIC_LANGGRAPH_API_URL=your_api_url{'\n'}
+              EXPO_PUBLIC_LANGGRAPH_ASSISTANT_ID=your_assistant_id
+            </Text>
+            <Text style={[chatStyles.configWarningText, { color: theme.colors.textSecondary }]}>
+              For testing purposes, the chat will attempt to connect but may show errors.
+            </Text>
+          </View>
+        ) : null}
+
+        <ChatScreen
+          config={langGraphConfig}
+          placeholder="Ask me anything about the LangGraph integration..."
+          reconnectOnMount={true}
+          onThreadCreated={handleThreadCreated}
+          onError={handleError}
+          renderHeader={() => (
+            <View style={[chatStyles.chatInfo, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[chatStyles.chatInfoText, { color: theme.colors.textSecondary }]}>
+                This is a demo of the LangGraph integration. The chat will attempt to connect to your configured LangGraph backend.
+              </Text>
+              <Text style={[chatStyles.chatInfoText, { color: theme.colors.textSecondary, fontSize: 12, marginTop: 4 }]}>
+                API URL: {langGraphConfig.apiUrl}
+              </Text>
+              {sessionInfo && (
+                <View style={{ marginTop: 8, padding: 8, backgroundColor: theme.colors.background, borderRadius: 6 }}>
+                  <Text style={[chatStyles.chatInfoText, { color: theme.colors.textSecondary, fontSize: 12 }]}>
+                    🔐 Auth Status: {sessionInfo.hasToken ? '✅ Authenticated' : '❌ No Token'}
+                  </Text>
+                  {sessionInfo.tokenPreview && (
+                    <Text style={[chatStyles.chatInfoText, { color: theme.colors.textSecondary, fontSize: 10, fontFamily: 'monospace' }]}>
+                      Token: {sessionInfo.tokenPreview}
+                    </Text>
+                  )}
+                  {sessionInfo.userId && (
+                    <Text style={[chatStyles.chatInfoText, { color: theme.colors.textSecondary, fontSize: 10 }]}>
+                      User ID: {sessionInfo.userId}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+          style={{
+            container: chatStyles.chatScreenContainer,
+            input: [chatStyles.chatInput, {
+              backgroundColor: theme.colors.background,
+              borderColor: theme.colors.border,
+              color: theme.colors.text
+            }],
+            sendButton: [chatStyles.sendButton, { backgroundColor: theme.colors.primary }],
+            sendButtonText: [chatStyles.sendButtonText, { color: theme.colors.background }],
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+// Chat-specific styles
+const chatStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 16,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  chatTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+  },
+  chatContainer: {
+    flex: 1,
+  },
+  configWarning: {
+    padding: 16,
+    margin: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ffa500',
+  },
+  configWarningTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  configWarningText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  configCode: {
+    fontFamily: 'monospace',
+    fontSize: 12,
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 8,
+  },
+  chatInfo: {
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e0e0e0',
+  },
+  chatInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  chatScreenContainer: {
+    flex: 1,
+  },
+  chatInput: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    fontSize: 16,
+  },
+  sendButton: {
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginLeft: 8,
+  },
+  sendButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

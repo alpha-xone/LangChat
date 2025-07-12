@@ -2,8 +2,16 @@
 export * from './components/auth';
 export * from './hooks/useAuth';
 export * from './data/AuthService';
+export { default as AuthService } from './data/AuthService';
+export { ChatService, type CreateThreadData, type UpdateThreadData } from './data/ChatService';
 export * from './data/supabase';
 export * from './types';
+
+// Chat components
+export * from './components/chat';
+
+// AI Integration Layer
+export * from './ai';
 
 // Theming system
 export {
